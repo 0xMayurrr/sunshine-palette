@@ -36,6 +36,6 @@ export function blankMeeting(day: Date): Meeting {
   return { id: '', title: '', client: '', date: date(day), startTime: '10:00', endTime: '11:00', type: 'Client Meeting', color: 'Client Meeting', description: '', meetingLink: '', reminders: defaultReminders, status: 'scheduled' }
 }
 export function formatTime(time: string) {
-  const [hours, minutes] = time.split(':').map(Number)
+  const [hours = 0, minutes = 0] = time.split(':').map(Number)
   return `${(hours % 12) || 12}:${String(minutes).padStart(2, '0')} ${hours >= 12 ? 'PM' : 'AM'}`
 }
