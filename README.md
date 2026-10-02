@@ -1,24 +1,48 @@
-# Sunshine Palette
+<div align="center">
+  <img src="public/favicon.png" alt="Buildicy Logo" width="80" height="80" />
+  <h1>BUILDICY CALENDAR</h1>
+  <p><strong>Private & Confidential Internal Application</strong></p>
+</div>
 
-dont make it darktheme i  need the theme colour of the 3 image logg
+---
 
-This project was built with [Lovable](https://lovable.dev).
+> [!IMPORTANT]
+> **Confidentiality Notice**: This repository contains proprietary code for Buildicy. All rights reserved. Do not share, distribute, or expose credentials or internal configurations.
 
-## Build with Lovable
+---
 
-Continue developing this project in the [Lovable editor](https://lovable.dev/projects/8e49abec-7261-4bb3-8582-242bcd67572b).
+## 🔒 Buildicy Calendar
 
-- **Ship faster**: describe what you want to build and Lovable handles the code.
-- **Stay in sync**: every change made in Lovable is committed straight to this repository.
-- **Full ownership**: this code is yours. Push to `main` on GitHub and your changes sync back into Lovable, ready for your next prompt.
+A focused, high-contrast calendar workspace for Buildicy founders to organize meetings, manage Google Calendar integrations, and automate email reminders.
 
-## Development
+---
 
-Prefer working locally? You need Node.js and npm — [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating).
+## 🛠️ Local Development
 
-```sh
-git clone <this-repository-url>
-cd <repository-name>
-npm i
-npm run dev
-```
+1. **Clone Repository**:
+   ```bash
+   git clone https://github.com/0xMayurrr/sunshine-palette.git
+   cd sunshine-palette
+   ```
+
+2. **Install Dependencies**:
+   ```bash
+   npm install
+   ```
+
+3. **Environment Setup**:
+   Copy `.env.example` to `.env` and configure your private credentials:
+   ```bash
+   cp .env.example .env
+   ```
+
+4. **Run Development Server**:
+   ```bash
+   npm run dev
+   ```
+
+---
+
+<div align="center">
+  <p>© 2026 Buildicy. All rights reserved.</p>
+</div>
