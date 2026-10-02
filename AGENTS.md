@@ -8,3 +8,6 @@
 > Commits you push to the connected branch sync back to Lovable and show up in
 > the editor, so keep the branch in a working state.
 <!-- LOVABLE:END -->
+
+- Keep calendar meeting types and sample data in a separate client-safe module so UI can later replace local persistence without rewriting views.
+- Persist Phase 1 meeting edits in browser storage only; remote integrations and scheduled delivery belong to a later phase.

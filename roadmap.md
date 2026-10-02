@@ -1,0 +1,3 @@
+- [x] Build the light Buildicy calendar interface and responsive layouts
+- [x] Add local meeting creation, editing, deletion, duplication, search, reminders and calendar navigation
+- [x] Verify the desktop and mobile experience
