@@ -38,7 +38,8 @@ export async function scheduleRemindersForMeeting(
 ) {
   if (!remindersList || !remindersList.length) return
 
-  const meetingDateTimeStr = `${date}T${startTime}:00`
+  // Treat date/time as IST (UTC+5:30) — append offset so Node.js doesn't interpret as UTC
+  const meetingDateTimeStr = `${date}T${startTime}:00+05:30`
   const meetingTimeMs = new Date(meetingDateTimeStr).getTime()
 
   if (isNaN(meetingTimeMs)) {
