@@ -121,3 +121,20 @@ $$ language plpgsql security definer;
 create or replace trigger on_auth_user_created
   after insert on auth.users
   for each row execute function public.handle_new_user();
+
+-- 5. SUPABASE AUTOMATED CRON SCHEDULER (pg_cron + pg_net)
+-- Enables 100% automated 1-minute reminder processing directly inside Supabase Database
+create extension if not exists pg_cron;
+create extension if not exists pg_net;
+
+-- Schedule 1-minute HTTP trigger in Supabase
+select cron.schedule(
+  'process-due-reminders-job',
+  '* * * * *',
+  $$
+  select net.http_get(
+    url := 'https://calendar.buildicy.com/api/cron?secret=reminders@buildicy.com'
+  );
+  $$
+);
+
