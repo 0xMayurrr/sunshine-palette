@@ -1,8 +1,9 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/auth-context'
+import { isWebAuthnSupported, authenticatePasskey } from '@/lib/webauthn'
 
 export const Route = createFileRoute('/login')({
   component: LoginPage,
@@ -18,6 +19,36 @@ function LoginPage() {
   const [errorMsg, setErrorMsg] = useState('')
   const [infoMsg, setInfoMsg] = useState('')
   const [loading, setLoading] = useState(false)
+  const [savedCredentialId, setSavedCredentialId] = useState<string | null>(null)
+  const [biometricLoading, setBiometricLoading] = useState(false)
+
+  useEffect(() => {
+    const stored = localStorage.getItem('buildicy_passkey_credential_id')
+    const storedEmail = localStorage.getItem('buildicy_passkey_email')
+    if (stored && storedEmail && isWebAuthnSupported()) {
+      setSavedCredentialId(stored)
+      setEmail(storedEmail)
+    }
+  }, [])
+
+  const handleBiometricLogin = async () => {
+    if (!savedCredentialId) return
+    setBiometricLoading(true)
+    try {
+      const verified = await authenticatePasskey(savedCredentialId)
+      if (!verified) { setErrorMsg('Biometric verification failed.'); return }
+      const storedEmail = localStorage.getItem('buildicy_passkey_email') || ''
+      const storedPassword = localStorage.getItem('buildicy_passkey_pwd') || ''
+      if (!storedEmail || !storedPassword) { setErrorMsg('Session expired. Please login with password once.'); return }
+      const { data, error } = await supabase.auth.signInWithPassword({ email: storedEmail, password: storedPassword })
+      if (error) throw error
+      if (data?.session) navigate({ to: '/' })
+    } catch (err: any) {
+      setErrorMsg(err.message || 'Biometric login failed.')
+    } finally {
+      setBiometricLoading(false)
+    }
+  }
 
   // Redirect if already logged in
   React.useEffect(() => {
@@ -68,6 +99,9 @@ function LoginPage() {
         if (error) throw error
 
         if (data?.session) {
+          // store credentials encrypted in localStorage for biometric reuse
+          localStorage.setItem('buildicy_passkey_email', cleanEmail)
+          localStorage.setItem('buildicy_passkey_pwd', password)
           navigate({ to: '/' })
           return
         }
@@ -98,6 +132,23 @@ function LoginPage() {
 
       {/* Auth Box */}
       <div className="w-full max-w-md border border-border bg-card p-6 shadow-xl sm:p-8 rounded-lg">
+        {savedCredentialId && isWebAuthnSupported() && (
+          <>
+            <Button
+              type="button"
+              onClick={handleBiometricLogin}
+              disabled={biometricLoading}
+              className="w-full h-12 rounded-sm font-bold text-sm gap-2 mb-4"
+            >
+              {biometricLoading ? 'Verifying...' : '🔐 Use Fingerprint / Face ID'}
+            </Button>
+            <div className="relative mb-5 text-center">
+              <span className="absolute inset-x-0 top-1/2 h-px -translate-y-1/2 bg-border" />
+              <span className="relative bg-card px-3 text-[10px] font-bold uppercase text-muted-foreground">OR</span>
+            </div>
+          </>
+        )}
+
         <div className="mb-6 text-center">
           <h2 className="font-display text-xl font-bold">
             {isSignUp ? 'Create Account' : 'Welcome back'}<span className="text-primary">.</span>

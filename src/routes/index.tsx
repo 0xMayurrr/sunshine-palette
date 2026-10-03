@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useEffect, useMemo, useState } from 'react'
 import { addDays, addMonths, addWeeks, eachDayOfInterval, endOfMonth, endOfWeek, format, isSameDay, isSameMonth, parseISO, startOfMonth, startOfWeek, subMonths, subWeeks } from 'date-fns'
-import { CalendarDays, ChevronLeft, ChevronRight, Clock3, Mail, Menu, Plus, Search, Settings2, X, LogOut, CheckCircle2, AlertCircle, RefreshCw, Pin, Bell, Video, User, ArrowRight, Sparkles } from 'lucide-react'
+import { CalendarDays, ChevronLeft, ChevronRight, Clock3, Mail, Menu, Plus, Search, Settings2, X, LogOut, CheckCircle2, AlertCircle, RefreshCw, Pin, Bell, Video, User, ArrowRight, Sparkles, Fingerprint } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import { MeetingDialog } from '@/components/calendar/MeetingDialog'
@@ -9,6 +9,7 @@ import { blankMeeting, calculateReminderDisplay, formatTime, Meeting, MeetingTyp
 import { useAuth } from '@/lib/auth-context'
 import { supabase } from '@/lib/supabase'
 import { createMeetingFn, deleteMeetingFn, disconnectGoogleFn, getGoogleConnectUrlFn, runReminderSchedulerFn, saveDefaultReminderEmailsFn, updateMeetingFn } from '@/lib/server-actions'
+import { isWebAuthnSupported, registerPasskey } from '@/lib/webauthn'
 
 export function BuildicyLogoLoading() {
   return (
@@ -101,6 +102,38 @@ function CalendarApp() {
   const [newDefaultEmail, setNewDefaultEmail] = useState('')
   const [savingEmails, setSavingEmails] = useState(false)
   const [runningCron, setRunningCron] = useState(false)
+  const [biometricEnabled, setBiometricEnabled] = useState(false)
+  const [biometricLoading, setBiometricLoading] = useState(false)
+
+  useEffect(() => {
+    const stored = localStorage.getItem('buildicy_passkey_credential_id')
+    if (stored) setBiometricEnabled(true)
+  }, [])
+
+  const handleEnableBiometric = async () => {
+    if (!user) return
+    setBiometricLoading(true)
+    try {
+      const result = await registerPasskey(user.id, user.email || '')
+      if (!result) { setStatusMsg({ type: 'error', text: 'Biometric setup failed. Try again.' }); return }
+      localStorage.setItem('buildicy_passkey_credential_id', result.credentialId)
+      localStorage.setItem('buildicy_passkey_email', user.email || '')
+      setBiometricEnabled(true)
+      setStatusMsg({ type: 'success', text: 'Fingerprint / Face ID enabled successfully!' })
+    } catch {
+      setStatusMsg({ type: 'error', text: 'Biometric setup failed.' })
+    } finally {
+      setBiometricLoading(false)
+    }
+  }
+
+  const handleDisableBiometric = () => {
+    localStorage.removeItem('buildicy_passkey_credential_id')
+    localStorage.removeItem('buildicy_passkey_email')
+    localStorage.removeItem('buildicy_passkey_pwd')
+    setBiometricEnabled(false)
+    setStatusMsg({ type: 'success', text: 'Biometric login disabled.' })
+  }
 
   // Auth Redirect Guard
   useEffect(() => {
@@ -682,7 +715,39 @@ function CalendarApp() {
               </div>
             </div>
 
-            {/* 2. Google Calendar & Video Call Integration Card */}
+            {/* 2. Biometric Login Card — mobile only */}
+            {isWebAuthnSupported() && (
+              <div className="rounded-xl border border-border bg-card p-5 sm:p-6 shadow-xs">
+                <div className="flex flex-wrap items-center justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <div className="flex size-9 items-center justify-center rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+                      <Fingerprint className="size-5 text-emerald-600 dark:text-emerald-400" />
+                    </div>
+                    <div>
+                      <h3 className="text-base font-bold">Fingerprint / Face ID</h3>
+                      <p className="text-xs text-muted-foreground">Skip password on this device using biometrics.</p>
+                    </div>
+                  </div>
+                  {biometricEnabled ? (
+                    <Button variant="outline" size="sm" onClick={handleDisableBiometric} className="text-destructive border-destructive/30 hover:bg-destructive/10 font-bold text-xs">
+                      Disable
+                    </Button>
+                  ) : (
+                    <Button size="sm" onClick={handleEnableBiometric} disabled={biometricLoading} className="font-bold text-xs gap-2">
+                      <Fingerprint className="size-3.5" />
+                      {biometricLoading ? 'Setting up...' : 'Enable'}
+                    </Button>
+                  )}
+                </div>
+                {biometricEnabled && (
+                  <p className="mt-3 text-xs text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1.5">
+                    <CheckCircle2 className="size-3.5" /> Active on this device
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* 4. Google Calendar & Video Call Integration Card */}
             <div className="rounded-xl border border-border bg-card p-5 sm:p-6 shadow-xs space-y-4">
               <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/60 pb-4">
                 <div className="flex items-center gap-2.5">
@@ -736,7 +801,7 @@ function CalendarApp() {
               )}
             </div>
 
-            {/* 3. Automated Email Reminders & Recipient Manager Card */}
+            {/* 5. Automated Email Reminders & Recipient Manager Card */}
             <div className="rounded-xl border border-border bg-card p-5 sm:p-6 shadow-xs space-y-5">
               <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/60 pb-4">
                 <div className="flex items-center gap-2.5">
@@ -795,7 +860,7 @@ function CalendarApp() {
               </div>
             </div>
 
-            {/* 4. System Preferences Card */}
+            {/* 6. System Preferences Card */}
             <div className="rounded-xl border border-border bg-card p-5 sm:p-6 shadow-xs">
               <div className="flex items-center gap-2.5 border-b border-border/60 pb-3 mb-4">
                 <Settings2 className="size-4 text-primary" />
