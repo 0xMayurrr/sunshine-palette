@@ -13,10 +13,9 @@ import { createMeetingFn, deleteMeetingFn, disconnectGoogleFn, getGoogleConnectU
 export function BuildicyLogoLoading() {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4 text-foreground">
-      <div className="flex flex-col items-center gap-4">
-        <div className="relative flex size-16 items-center justify-center rounded-2xl bg-primary/10 border border-primary/20 p-3 shadow-xl">
-          <img src="/favicon.png" alt="Buildicy Logo" className="size-10 object-contain animate-logo-spin" />
-          <div className="absolute -inset-1 rounded-2xl bg-primary/20 blur-md -z-10 animate-pulse" />
+      <div className="flex flex-col items-center gap-5">
+        <div className="relative">
+          <img src="/favicon.png" alt="Buildicy Logo" className="size-20 sm:size-24 object-contain animate-logo-spin drop-shadow-md" />
         </div>
         <div className="text-center">
           <p className="font-display text-xs font-extrabold uppercase tracking-widest text-primary">BUILDICY<span className="text-foreground">CALENDAR</span></p>
