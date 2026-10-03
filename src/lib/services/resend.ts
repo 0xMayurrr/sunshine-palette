@@ -31,7 +31,9 @@ function getTransporter() {
   }
 
   return nodemailer.createTransport({
-    service: 'gmail',
+    host: 'smtp.gmail.com',
+    port: 465,
+    secure: true, // SSL/TLS
     auth: { user, pass },
   })
 }
