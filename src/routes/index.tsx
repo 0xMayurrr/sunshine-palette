@@ -111,6 +111,8 @@ function CalendarApp() {
   }, [user, authLoading, navigate])
 
   // Fetch Meetings & Google Connection status from Supabase
+  const SHARED_OWNER_ID = '85f65368-252f-41c3-8831-be3b2c970ec2'
+
   const loadSupabaseData = async () => {
     if (!user) return
     setDbLoading(true)
@@ -121,22 +123,22 @@ function CalendarApp() {
         supabase
           .from('meetings')
           .select('*')
-          .eq('user_id', user.id)
+          .eq('user_id', SHARED_OWNER_ID)
           .order('date', { ascending: true }),
         supabase
           .from('google_connections')
           .select('*')
-          .eq('user_id', user.id)
+          .eq('user_id', SHARED_OWNER_ID)
           .maybeSingle(),
         supabase
           .from('profiles')
           .select('default_reminder_emails')
-          .eq('user_id', user.id)
+          .eq('user_id', SHARED_OWNER_ID)
           .limit(1),
         supabase
           .from('reminders')
           .select('meeting_id, reminder_type')
-          .eq('user_id', user.id)
+          .eq('user_id', SHARED_OWNER_ID)
           .neq('status', 'cancelled'),
       ])
 
@@ -225,13 +227,14 @@ function CalendarApp() {
 
   const handleSave = async (meeting: Meeting) => {
     if (!user) return
+    const SHARED_OWNER_ID = '85f65368-252f-41c3-8831-be3b2c970ec2'
     setStatusMsg(null)
     try {
       if (meeting.id && !meeting.id.startsWith('sample-')) {
         // Update existing meeting
         const res = await updateMeetingFn({
           data: {
-            userId: user.id,
+            userId: SHARED_OWNER_ID,
             meetingId: meeting.id,
             title: meeting.title,
             clientName: meeting.client,
@@ -253,7 +256,7 @@ function CalendarApp() {
         // Create new meeting
         const res = await createMeetingFn({
           data: {
-            userId: user.id,
+            userId: SHARED_OWNER_ID,
             title: meeting.title,
             clientName: meeting.client,
             description: meeting.description,
@@ -318,7 +321,7 @@ function CalendarApp() {
               updated_at: new Date().toISOString(),
             })
             .eq('id', meeting.id)
-            .eq('user_id', user.id)
+            .eq('user_id', SHARED_OWNER_ID)
             .select()
             .maybeSingle()
 
@@ -332,7 +335,7 @@ function CalendarApp() {
           const { data: dbInserted, error: insertErr } = await supabase
             .from('meetings')
             .insert({
-              user_id: user.id,
+              user_id: SHARED_OWNER_ID,
               title: meeting.title,
               client_name: meeting.client || '',
               description: meeting.description || '',
@@ -389,12 +392,13 @@ function CalendarApp() {
 
   const handleDelete = async (id: string) => {
     if (!user) return
+    const SHARED_OWNER_ID = '85f65368-252f-41c3-8831-be3b2c970ec2'
     const target = meetings.find(m => m.id === id)
     try {
       if (id && !id.startsWith('sample-')) {
         await deleteMeetingFn({
           data: {
-            userId: user.id,
+            userId: SHARED_OWNER_ID,
             meetingId: id,
             googleEventId: target?.google_event_id,
           }
@@ -418,7 +422,7 @@ function CalendarApp() {
     if (!user) return
     setSavingEmails(true)
     try {
-      await saveDefaultReminderEmailsFn({ data: { userId: user.id, emails: updated } })
+      await saveDefaultReminderEmailsFn({ data: { userId: '85f65368-252f-41c3-8831-be3b2c970ec2', emails: updated } })
       setStatusMsg({ type: 'success', text: 'Default reminder emails saved.' })
     } catch {
       setStatusMsg({ type: 'error', text: 'Failed to save.' })
