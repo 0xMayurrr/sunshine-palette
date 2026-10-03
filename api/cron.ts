@@ -46,39 +46,66 @@ async function sendEmail(toEmail: string, payload: any) {
 
   const joinLink = payload.googleMeetLink || payload.meetingLink || ''
   const timingNotice = formatMinutesLabel(payload.minutesBefore)
-  const timeWindow = `${payload.startTime} - ${payload.endTime}`
+  const timeWindow = `${payload.startTime} – ${payload.endTime}`
 
-  const html = `
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>Meeting Reminder</title></head>
-<body style="margin:0;padding:0;background-color:#09090B;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#FFFFFF;">
-<table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color:#09090B;padding:40px 20px;">
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>Meeting Reminder</title></head>
+<body style="margin:0;padding:0;background-color:#F4F4F5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;">
+<table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color:#F4F4F5;padding:40px 16px;">
 <tr><td align="center">
-<table width="100%" border="0" cellspacing="0" cellpadding="0" style="max-width:580px;background-color:#121215;border:1px solid #27272A;border-radius:4px;overflow:hidden;">
-<tr><td style="padding:28px 32px;border-bottom:1px solid #27272A;background-color:#18181B;">
-<table width="100%" border="0" cellspacing="0" cellpadding="0"><tr>
-<td><span style="font-size:18px;font-weight:800;color:#FFFFFF;text-transform:uppercase;">BUILDICY<span style="color:#7C3AED;">CALENDAR</span></span></td>
-<td align="right"><span style="font-size:10px;font-weight:700;color:#7C3AED;background-color:#2E1065;padding:4px 10px;border-radius:2px;text-transform:uppercase;border:1px solid #5B21B6;">REMINDER</span></td>
-</tr></table></td></tr>
-<tr><td style="padding:36px 32px;">
-<p style="margin:0 0 8px 0;font-size:11px;font-weight:700;color:#A1A1AA;text-transform:uppercase;letter-spacing:1px;">Starting in ${timingNotice}</p>
-<h1 style="margin:0 0 16px 0;font-size:26px;font-weight:800;color:#FFFFFF;">${escapeHtml(payload.meetingTitle)}</h1>
-<table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color:#18181B;border-left:3px solid #7C3AED;margin-bottom:28px;padding:20px;">
-<tr><td>
-<table width="100%" border="0" cellspacing="0" cellpadding="0">
-<tr><td style="padding-bottom:10px;font-size:13px;color:#A1A1AA;font-weight:600;">Date & Time:</td><td style="padding-bottom:10px;font-size:13px;color:#FFFFFF;font-weight:700;" align="right">${escapeHtml(payload.meetingDate)} (${escapeHtml(timeWindow)})</td></tr>
-${payload.clientName ? `<tr><td style="padding-bottom:10px;font-size:13px;color:#A1A1AA;font-weight:600;">Client:</td><td style="padding-bottom:10px;font-size:13px;color:#FFFFFF;font-weight:700;" align="right">${escapeHtml(payload.clientName)}</td></tr>` : ''}
-<tr><td style="font-size:13px;color:#A1A1AA;font-weight:600;">Category:</td><td style="font-size:13px;color:#7C3AED;font-weight:700;" align="right">${escapeHtml(payload.meetingType)}</td></tr>
-</table></td></tr></table>
-${joinLink ? `<table width="100%" border="0" cellspacing="0" cellpadding="0"><tr><td align="center"><a href="${escapeHtml(joinLink)}" target="_blank" style="display:inline-block;background-color:#7C3AED;color:#FFFFFF;font-size:14px;font-weight:800;text-decoration:none;padding:14px 28px;border-radius:2px;text-transform:uppercase;">JOIN GOOGLE MEET</a></td></tr></table>` : ''}
-</td></tr>
-<tr><td style="padding:20px 32px;border-top:1px solid #27272A;background-color:#18181B;text-align:center;"><p style="margin:0;font-size:11px;color:#71717A;">Buildicy Founder Workspace &bull; Asia/Kolkata Timezone</p></td></tr>
-</table></td></tr></table></body></html>`
+<table width="100%" border="0" cellspacing="0" cellpadding="0" style="max-width:560px;">
+  <tr><td style="padding-bottom:20px;">
+    <table width="100%" border="0" cellspacing="0" cellpadding="0"><tr>
+      <td><span style="font-size:15px;font-weight:800;letter-spacing:1px;color:#18181B;">BUILDICY<span style="color:#7C3AED;">CALENDAR</span></span></td>
+      <td align="right"><span style="font-size:10px;font-weight:700;color:#7C3AED;background-color:#EDE9FE;padding:4px 10px;border-radius:20px;text-transform:uppercase;letter-spacing:0.5px;">Meeting Reminder</span></td>
+    </tr></table>
+  </td></tr>
+  <tr><td style="background-color:#FFFFFF;border-radius:12px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,0.08);">
+    <table width="100%" border="0" cellspacing="0" cellpadding="0">
+      <tr><td style="background-color:#7C3AED;padding:4px 0;"></td></tr>
+      <tr><td style="padding:36px 36px 28px;">
+        <p style="margin:0 0 6px;font-size:12px;font-weight:700;color:#7C3AED;text-transform:uppercase;letter-spacing:1px;">Starting in ${timingNotice}</p>
+        <h1 style="margin:0 0 24px;font-size:24px;font-weight:800;color:#09090B;line-height:1.3;">${escapeHtml(payload.meetingTitle)}</h1>
+        <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color:#FAFAFA;border:1px solid #E4E4E7;border-radius:8px;margin-bottom:24px;">
+          <tr><td style="padding:20px 24px;">
+            <table width="100%" border="0" cellspacing="0" cellpadding="0">
+              <tr>
+                <td style="padding-bottom:12px;font-size:12px;color:#71717A;font-weight:600;">📅 &nbsp;Date</td>
+                <td style="padding-bottom:12px;font-size:13px;color:#18181B;font-weight:700;" align="right">${escapeHtml(payload.meetingDate)}</td>
+              </tr>
+              <tr>
+                <td style="padding-bottom:12px;font-size:12px;color:#71717A;font-weight:600;">🕐 &nbsp;Time</td>
+                <td style="padding-bottom:12px;font-size:13px;color:#18181B;font-weight:700;" align="right">${escapeHtml(timeWindow)} IST</td>
+              </tr>
+              ${payload.clientName ? `<tr>
+                <td style="padding-bottom:12px;font-size:12px;color:#71717A;font-weight:600;">👤 &nbsp;Client</td>
+                <td style="padding-bottom:12px;font-size:13px;color:#18181B;font-weight:700;" align="right">${escapeHtml(payload.clientName)}</td>
+              </tr>` : ''}
+              <tr>
+                <td style="font-size:12px;color:#71717A;font-weight:600;">🏷️ &nbsp;Type</td>
+                <td style="font-size:13px;color:#7C3AED;font-weight:700;" align="right">${escapeHtml(payload.meetingType)}</td>
+              </tr>
+            </table>
+          </td></tr>
+        </table>
+        ${payload.description ? `<p style="margin:0 0 6px;font-size:11px;font-weight:700;color:#71717A;text-transform:uppercase;letter-spacing:0.5px;">Agenda</p><p style="margin:0 0 24px;font-size:14px;color:#3F3F46;line-height:1.6;background:#FAFAFA;border-left:3px solid #7C3AED;padding:12px 16px;border-radius:0 6px 6px 0;">${escapeHtml(payload.description)}</p>` : ''}
+        ${joinLink ? `<table width="100%" border="0" cellspacing="0" cellpadding="0"><tr><td align="center" style="padding-top:8px;"><a href="${escapeHtml(joinLink)}" target="_blank" style="display:inline-block;background-color:#7C3AED;color:#FFFFFF;font-size:14px;font-weight:700;text-decoration:none;padding:14px 32px;border-radius:8px;letter-spacing:0.3px;">Join Google Meet →</a></td></tr></table>` : ''}
+      </td></tr>
+      <tr><td style="padding:16px 36px;border-top:1px solid #F4F4F5;text-align:center;">
+        <p style="margin:0;font-size:11px;color:#A1A1AA;">Buildicy Founder Workspace &bull; Asia/Kolkata (IST) &bull; This is an automated reminder</p>
+      </td></tr>
+    </table>
+  </td></tr>
+</table>
+</td></tr></table>
+</body></html>`
 
   try {
     const info = await transporter.sendMail({
       from: `"Buildicy Calendar" <${fromEmail}>`,
       to: toEmail,
-      subject: `[Reminder] ${payload.meetingTitle} (${payload.startTime})`,
+      subject: `⏰ Reminder: ${payload.meetingTitle} starts in ${timingNotice}`,
       html,
     })
     return { success: true, id: info.messageId }
