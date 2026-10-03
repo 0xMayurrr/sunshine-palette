@@ -26,7 +26,7 @@ function GoogleCallbackPage() {
       return
     }
 
-    const SHARED_OWNER_ID = '85f65368-252f-41c3-8831-be3b2c970ec2'
+    const SHARED_OWNER_ID = 'a30a0728-cebc-443e-918a-d2454b5a6333'
     handleGoogleCallbackFn({ data: { code, userId: SHARED_OWNER_ID, origin: 'https://calendar.buildicy.com' } })
       .then((result) => {
         console.log('Google callback result:', result)
