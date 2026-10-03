@@ -16,7 +16,13 @@ function GoogleCallbackPage() {
   useEffect(() => {
     const searchParams = new URLSearchParams(window.location.search)
     const code = searchParams.get('code')
-    const stateUserId = searchParams.get('state') || user?.id
+    const errorParam = searchParams.get('error')
+    const stateUserId = searchParams.get('state')
+
+    if (errorParam) {
+      setError(`Google OAuth error: ${errorParam}`)
+      return
+    }
 
     if (!code) {
       setError('No authorization code returned from Google.')
@@ -24,11 +30,11 @@ function GoogleCallbackPage() {
     }
 
     if (!stateUserId) {
-      setError('User session not found. Please log in again.')
+      setError('Session expired. Please try connecting Google Calendar again.')
       return
     }
 
-    handleGoogleCallbackFn({ data: { code, userId: stateUserId, origin: window.location.origin } })
+    handleGoogleCallbackFn({ data: { code, userId: stateUserId, origin: 'https://calendar.buildicy.com' } })
       .then(() => {
         setStatus('Google Calendar connected successfully! Redirecting...')
         setTimeout(() => {
@@ -39,7 +45,7 @@ function GoogleCallbackPage() {
         console.error('Google Callback Error:', err)
         setError(err.message || 'Failed to complete Google Calendar authorization.')
       })
-  }, [user, navigate])
+  }, [])
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4 text-foreground">
