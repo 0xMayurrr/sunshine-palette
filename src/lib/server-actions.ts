@@ -23,31 +23,11 @@ export const createMeetingFn = createServerFn({ method: 'POST' })
   .validator((data: CreateMeetingInput) => data)
   .handler(async ({ data }) => {
     const { getSupabaseAdmin } = await import('./supabase-server')
-    const { createGoogleCalendarEvent } = await import('./services/google')
     const { scheduleRemindersForMeeting } = await import('./services/reminders')
     const supabase = getSupabaseAdmin()
 
     let googleEventId: string | undefined = data.googleEventId
     let googleMeetLink: string | undefined = data.googleMeetLink
-
-    if (!googleEventId) {
-      try {
-        const googleResult = await createGoogleCalendarEvent(data.userId, {
-          title: data.title,
-          description: data.description,
-          date: data.date,
-          startTime: data.startTime,
-          endTime: data.endTime,
-        })
-
-        if (googleResult?.googleEventId) {
-          googleEventId = googleResult.googleEventId
-          googleMeetLink = googleResult.googleMeetLink
-        }
-      } catch (gErr) {
-        console.error('Google calendar event creation warning:', gErr)
-      }
-    }
 
     const { data: inserted, error } = await supabase
       .from('meetings')
