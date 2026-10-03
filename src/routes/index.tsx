@@ -10,6 +10,23 @@ import { useAuth } from '@/lib/auth-context'
 import { supabase } from '@/lib/supabase'
 import { createMeetingFn, deleteMeetingFn, disconnectGoogleFn, getGoogleConnectUrlFn, runReminderSchedulerFn, saveDefaultReminderEmailsFn, updateMeetingFn } from '@/lib/server-actions'
 
+export function BuildicyLogoLoading() {
+  return (
+    <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4 text-foreground">
+      <div className="flex flex-col items-center gap-4">
+        <div className="relative flex size-16 items-center justify-center rounded-2xl bg-primary/10 border border-primary/20 p-3 shadow-xl">
+          <img src="/favicon.png" alt="Buildicy Logo" className="size-10 object-contain animate-logo-spin" />
+          <div className="absolute -inset-1 rounded-2xl bg-primary/20 blur-md -z-10 animate-pulse" />
+        </div>
+        <div className="text-center">
+          <p className="font-display text-xs font-extrabold uppercase tracking-widest text-primary">BUILDICY<span className="text-foreground">CALENDAR</span></p>
+          <p className="mt-1 text-[11px] font-medium text-muted-foreground animate-pulse">Loading workspace...</p>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export const Route = createFileRoute('/')({
   head: () => ({ meta: [
     { title: 'Buildicy Calendar | Meetings, made clear' },
@@ -19,6 +36,7 @@ export const Route = createFileRoute('/')({
     { property: 'og:type', content: 'website' },
     { name: 'twitter:card', content: 'summary_large_image' },
   ] }),
+  pendingComponent: BuildicyLogoLoading,
   component: CalendarApp,
 })
 
@@ -462,20 +480,7 @@ function CalendarApp() {
   const selectSection = (next: Section) => { setSection(next); setMobileMenu(false) }
 
   if (authLoading) {
-    return (
-      <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4 text-foreground">
-        <div className="flex flex-col items-center gap-4">
-          <div className="relative flex size-16 items-center justify-center rounded-2xl bg-primary/10 border border-primary/20 p-3 shadow-xl">
-            <img src="/favicon.png" alt="Buildicy Logo" className="size-10 object-contain animate-logo-spin" />
-            <div className="absolute -inset-1 rounded-2xl bg-primary/20 blur-md -z-10 animate-pulse" />
-          </div>
-          <div className="text-center">
-            <p className="font-display text-xs font-extrabold uppercase tracking-widest text-primary">BUILDICY<span className="text-foreground">CALENDAR</span></p>
-            <p className="mt-1 text-[11px] font-medium text-muted-foreground animate-pulse">Loading workspace...</p>
-          </div>
-        </div>
-      </div>
-    )
+    return <BuildicyLogoLoading />
   }
 
   if (!user) return null

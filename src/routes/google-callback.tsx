@@ -65,7 +65,7 @@ function GoogleCallbackPage() {
           <div>
             <h2 className="font-display text-lg font-bold">{status}</h2>
             <div className="mt-4 flex justify-center">
-              <div className="size-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+              <img src="/favicon.png" alt="Buildicy Logo" className="size-10 object-contain animate-logo-spin" />
             </div>
           </div>
         )}
