@@ -76,6 +76,27 @@
   ::selection { background: var(--accent); color: var(--accent-foreground); }
 }
 @utility calendar-grid { grid-template-columns: repeat(7, minmax(0, 1fr)); }
+
+@keyframes logo-spin {
+  0% {
+    transform: rotate(0deg) scale(1);
+    filter: drop-shadow(0 0 2px rgba(124, 58, 237, 0.4));
+  }
+  50% {
+    transform: rotate(180deg) scale(1.06);
+    filter: drop-shadow(0 0 8px rgba(124, 58, 237, 0.8));
+  }
+  100% {
+    transform: rotate(360deg) scale(1);
+    filter: drop-shadow(0 0 2px rgba(124, 58, 237, 0.4));
+  }
+}
+
+.animate-logo-spin {
+  animation: logo-spin 5s ease-in-out infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; transition-duration: .01ms !important; }
 }
+

@@ -1,11 +1,11 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useEffect, useMemo, useState } from 'react'
 import { addDays, addMonths, addWeeks, eachDayOfInterval, endOfMonth, endOfWeek, format, isSameDay, isSameMonth, parseISO, startOfMonth, startOfWeek, subMonths, subWeeks } from 'date-fns'
-import { CalendarDays, ChevronLeft, ChevronRight, Clock3, Mail, Menu, Plus, Search, Settings2, X, LogOut, CheckCircle2, AlertCircle, RefreshCw, Pin } from 'lucide-react'
+import { CalendarDays, ChevronLeft, ChevronRight, Clock3, Mail, Menu, Plus, Search, Settings2, X, LogOut, CheckCircle2, AlertCircle, RefreshCw, Pin, Bell, Video, User, ArrowRight, Sparkles } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import { MeetingDialog } from '@/components/calendar/MeetingDialog'
-import { blankMeeting, formatTime, Meeting, MeetingType, UserProfile } from '@/lib/calendar'
+import { blankMeeting, calculateReminderDisplay, formatTime, Meeting, MeetingType, UserProfile } from '@/lib/calendar'
 import { useAuth } from '@/lib/auth-context'
 import { supabase } from '@/lib/supabase'
 import { createMeetingFn, deleteMeetingFn, disconnectGoogleFn, getGoogleConnectUrlFn, runReminderSchedulerFn, saveDefaultReminderEmailsFn, updateMeetingFn } from '@/lib/server-actions'
@@ -487,7 +487,7 @@ function CalendarApp() {
       {/* Header */}
       <div className={`flex h-16 items-center border-b border-border transition-all ${isSidebarOpen ? 'justify-between px-4' : 'justify-center px-0'}`}>
         <div className="flex items-center gap-3 min-w-0">
-          <img src="/favicon.png" alt="Buildicy logo" className="size-9 shrink-0 object-contain drop-shadow-sm" />
+          <img src="/favicon.png" alt="Buildicy logo" className="size-9 shrink-0 object-contain drop-shadow-sm animate-logo-spin" />
           <div className={`font-display text-[15px] font-bold leading-[1.05] whitespace-nowrap transition-opacity duration-200 ${isSidebarOpen ? 'opacity-100' : 'lg:hidden'}`}>
             BUILDICY<span className="block font-medium text-primary">CALENDAR<span className="text-foreground">.</span></span>
           </div>
@@ -1115,36 +1115,127 @@ function TimeView({ cursor, view, meetings, onSelect, onOpen }: { cursor: Date; 
   )
 }
 
-function UpcomingList({ meetings, onOpen, long = false, search }: { meetings: Meeting[]; onOpen: (meeting: Meeting) => void; long?: boolean; search: string }) {
+function UpcomingList({ meetings, onOpen, search }: { meetings: Meeting[]; onOpen: (meeting: Meeting) => void; long?: boolean; search: string }) {
   if (!meetings.length) return (
-    <div className="py-10 text-center">
-      <CalendarDays className="mx-auto size-7 text-primary/50" />
-      <p className="mt-3 text-sm font-semibold">{search ? 'No matching meetings' : 'Nothing on the horizon'}</p>
-      <p className="mt-1 text-xs text-muted-foreground">{search ? 'Try another search.' : 'Your upcoming meetings will appear here.'}</p>
+    <div className="py-16 text-center border border-dashed border-border/70 rounded-2xl bg-card/40 px-4">
+      <CalendarDays className="mx-auto size-10 text-primary/40" />
+      <p className="mt-4 text-base font-bold">{search ? 'No matching meetings found' : 'Nothing on the horizon'}</p>
+      <p className="mt-1 text-xs text-muted-foreground max-w-sm mx-auto">{search ? 'Try adjusting your search query.' : 'Your upcoming agenda and scheduled reminder notifications will appear here.'}</p>
     </div>
   )
-  let previous = ''
+
+  let previousGroup = ''
+
   return (
-    <div className="space-y-1">
+    <div className="space-y-4">
       {meetings.map((m) => {
         const date = parseISO(m.date)
-        const group = isSameDay(date, today) ? 'TODAY' : isSameDay(date, addDays(today, 1)) ? 'TOMORROW' : format(date, 'MMM d').toUpperCase()
-        const showGroup = previous !== group
-        previous = group
+        const group = isSameDay(date, today) ? 'TODAY' : isSameDay(date, addDays(today, 1)) ? 'TOMORROW' : format(date, 'EEEE, MMMM d').toUpperCase()
+        const showGroup = previousGroup !== group
+        previousGroup = group
+
+        const categoryTheme: Record<MeetingType, { badge: string; border: string; dot: string }> = {
+          'Client Meeting': { badge: 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20', border: 'border-l-purple-600', dot: 'bg-purple-600' },
+          'Internal Meeting': { badge: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20', border: 'border-l-emerald-600', dot: 'bg-emerald-600' },
+          'Follow-up': { badge: 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20', border: 'border-l-amber-600', dot: 'bg-amber-600' },
+          'Important': { badge: 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20', border: 'border-l-rose-600', dot: 'bg-rose-600' },
+          'Other': { badge: 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/20', border: 'border-l-indigo-600', dot: 'bg-indigo-600' },
+        }
+
+        const theme = categoryTheme[m.color || m.type] || categoryTheme['Client Meeting']
+
         return (
-          <div key={m.id}>
-            {showGroup && <p className={`text-[10px] font-bold text-muted-foreground ${long ? 'mt-8 mb-3' : 'mt-5 mb-3'}`}>{group}</p>}
-            <Button variant="ghost" onClick={() => onOpen(m)} className={`group flex h-auto w-full items-start gap-3 rounded-sm border border-transparent bg-card p-3 text-left shadow-none hover:border-border hover:bg-card ${long ? 'sm:p-5' : ''}`}>
-              <span className={`mt-1.5 size-2 shrink-0 ${eventColors[m.color]}`} />
-              <span className="min-w-0 flex-1">
-                <span className={`block truncate font-semibold ${long ? 'text-sm sm:text-base' : 'text-xs'}`}>{m.title}</span>
-                <span className="mt-1 block truncate text-[11px] font-normal text-muted-foreground">{m.client || m.type}</span>
-              </span>
-              <span className="shrink-0 text-[10px] font-bold text-muted-foreground">{formatTime(m.startTime)}</span>
-            </Button>
+          <div key={m.id} className="space-y-2">
+            {showGroup && (
+              <div className="flex items-center gap-3 pt-5 pb-1">
+                <span className="flex items-center gap-1.5 rounded-full bg-primary/10 border border-primary/20 px-3 py-1 text-[11px] font-black tracking-wider text-primary uppercase">
+                  <CalendarDays className="size-3.5" />
+                  {group}
+                </span>
+                <div className="h-px flex-1 bg-border/60" />
+              </div>
+            )}
+
+            <div
+              onClick={() => onOpen(m)}
+              className={`group relative flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-xl border border-border bg-card p-4 sm:p-5 shadow-sm hover:shadow-lg hover:border-primary/40 transition-all duration-200 cursor-pointer overflow-hidden border-l-4 ${theme.border}`}
+            >
+              <div className="min-w-0 flex-1 space-y-2.5">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className={`inline-flex items-center gap-1.5 rounded-md border px-2.5 py-0.5 text-[11px] font-bold ${theme.badge}`}>
+                    <span className={`size-1.5 rounded-full ${theme.dot} animate-pulse`} />
+                    {m.type}
+                  </span>
+
+                  <span className="inline-flex items-center gap-1 rounded-md bg-secondary px-2.5 py-0.5 text-[11px] font-bold text-foreground">
+                    <Clock3 className="size-3 text-muted-foreground" />
+                    {formatTime(m.startTime)} – {formatTime(m.endTime)}
+                  </span>
+
+                  {m.google_meet_link && (
+                    <a
+                      href={m.google_meet_link}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={(e) => e.stopPropagation()}
+                      className="inline-flex items-center gap-1.5 rounded-md bg-blue-500/10 border border-blue-500/20 px-2.5 py-0.5 text-[11px] font-bold text-blue-600 dark:text-blue-400 hover:bg-blue-500/20 transition-colors"
+                    >
+                      <Video className="size-3 text-blue-500" />
+                      Google Meet
+                    </a>
+                  )}
+                </div>
+
+                <div>
+                  <h3 className="text-base sm:text-lg font-bold text-foreground group-hover:text-primary transition-colors truncate">
+                    {m.title}
+                  </h3>
+                  {m.client && (
+                    <p className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground font-medium">
+                      <User className="size-3.5 text-primary/80" />
+                      <span>Client: <strong className="text-foreground">{m.client}</strong></span>
+                    </p>
+                  )}
+                </div>
+
+                {m.reminders && m.reminders.length > 0 && (
+                  <div className="mt-2 flex flex-wrap items-center gap-2 pt-2.5 border-t border-border/50">
+                    <span className="flex items-center gap-1 text-[11px] font-bold text-primary">
+                      <Bell className="size-3 text-amber-500 animate-pulse" />
+                      Notifications:
+                    </span>
+                    {m.reminders.map((r, idx) => {
+                      const triggerDisplay = calculateReminderDisplay(m.date, m.startTime, r)
+                      return (
+                        <span key={idx} className="inline-flex items-center gap-1.5 rounded-md bg-secondary/80 border border-border/80 px-2.5 py-1 text-[11px] font-medium text-foreground">
+                          <span>{r}</span>
+                          {triggerDisplay && (
+                            <span className="font-bold text-primary bg-primary/10 px-1.5 py-0.2 rounded text-[10px]">
+                              📩 {triggerDisplay}
+                            </span>
+                          )}
+                        </span>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+
+              <div className="flex shrink-0 items-center sm:self-center">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-1.5 rounded-lg text-xs font-bold border-border group-hover:border-primary group-hover:bg-primary group-hover:text-primary-foreground transition-all shadow-none"
+                >
+                  <span>Agenda</span>
+                  <ArrowRight className="size-3.5 transition-transform group-hover:translate-x-1" />
+                </Button>
+              </div>
+            </div>
           </div>
         )
       })}
     </div>
   )
 }
+
