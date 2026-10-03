@@ -458,10 +458,16 @@ function CalendarApp() {
 
   if (authLoading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-background text-foreground">
-        <div className="flex flex-col items-center gap-3">
-          <div className="size-10 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-          <p className="font-display text-xs font-bold uppercase tracking-wider text-muted-foreground">Loading Buildicy Calendar...</p>
+      <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4 text-foreground">
+        <div className="flex flex-col items-center gap-4">
+          <div className="relative flex size-16 items-center justify-center rounded-2xl bg-primary/10 border border-primary/20 p-3 shadow-xl">
+            <img src="/favicon.png" alt="Buildicy Logo" className="size-10 object-contain animate-logo-spin" />
+            <div className="absolute -inset-1 rounded-2xl bg-primary/20 blur-md -z-10 animate-pulse" />
+          </div>
+          <div className="text-center">
+            <p className="font-display text-xs font-extrabold uppercase tracking-widest text-primary">BUILDICY<span className="text-foreground">CALENDAR</span></p>
+            <p className="mt-1 text-[11px] font-medium text-muted-foreground animate-pulse">Loading workspace...</p>
+          </div>
         </div>
       </div>
     )
@@ -487,7 +493,7 @@ function CalendarApp() {
       {/* Header */}
       <div className={`flex h-16 items-center border-b border-border transition-all ${isSidebarOpen ? 'justify-between px-4' : 'justify-center px-0'}`}>
         <div className="flex items-center gap-3 min-w-0">
-          <img src="/favicon.png" alt="Buildicy logo" className="size-9 shrink-0 object-contain drop-shadow-sm animate-logo-spin" />
+          <img src="/favicon.png" alt="Buildicy logo" className="size-9 shrink-0 object-contain drop-shadow-sm" />
           <div className={`font-display text-[15px] font-bold leading-[1.05] whitespace-nowrap transition-opacity duration-200 ${isSidebarOpen ? 'opacity-100' : 'lg:hidden'}`}>
             BUILDICY<span className="block font-medium text-primary">CALENDAR<span className="text-foreground">.</span></span>
           </div>

@@ -83,7 +83,7 @@ function LoginPage() {
       {/* Brand Badge */}
       <div className="mb-8 flex flex-col items-center gap-3">
         <div className="flex size-14 items-center justify-center rounded-xl bg-primary/10 border border-primary/20 p-2 shadow-lg">
-          <img src="/favicon.png" alt="Buildicy Logo" className="size-10 object-contain animate-logo-spin" />
+          <img src="/favicon.png" alt="Buildicy Logo" className="size-10 object-contain" />
         </div>
         <div className="text-center">
           <h1 className="font-display text-2xl font-bold tracking-tight">
