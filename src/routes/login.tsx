@@ -15,20 +15,6 @@ function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
 
-  const quickLogin = async (quickEmail: string, quickPassword: string) => {
-    setErrorMsg('')
-    setInfoMsg('')
-    setLoading(true)
-    try {
-      const { data, error } = await supabase.auth.signInWithPassword({ email: quickEmail, password: quickPassword })
-      if (error) throw error
-      if (data?.session) navigate({ to: '/' })
-    } catch (err: any) {
-      setErrorMsg(err.message || 'Login failed')
-    } finally {
-      setLoading(false)
-    }
-  }
   const [errorMsg, setErrorMsg] = useState('')
   const [infoMsg, setInfoMsg] = useState('')
   const [loading, setLoading] = useState(false)
@@ -207,27 +193,7 @@ function LoginPage() {
           Continue with Google
         </Button>
 
-        <div className="mt-5 border border-border rounded-sm p-3 space-y-2">
-          <p className="text-[10px] font-bold uppercase text-muted-foreground text-center">Quick Access</p>
-          <button
-            type="button"
-            onClick={() => quickLogin('mayurbuildicy@gmail.com', 'password123')}
-            disabled={loading}
-            className="w-full text-left px-3 py-2 text-xs border border-border bg-background hover:border-primary hover:text-primary transition-colors rounded-sm"
-          >
-            <span className="font-bold">Mayur</span> — mayurbuildicy@gmail.com
-          </button>
-          <button
-            type="button"
-            onClick={() => quickLogin('founder@buildicy.com', 'password123')}
-            disabled={loading}
-            className="w-full text-left px-3 py-2 text-xs border border-border bg-background hover:border-primary hover:text-primary transition-colors rounded-sm"
-          >
-            <span className="font-bold">Founder</span> — founder@buildicy.com
-          </button>
-        </div>
-
-        <div className="mt-4 text-center text-xs">
+        <div className="mt-6 text-center text-xs">
           <button
             type="button"
             onClick={() => {
