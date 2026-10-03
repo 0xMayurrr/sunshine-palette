@@ -8,20 +8,21 @@ export function getClientCredentials() {
 }
 
 
+const GOOGLE_REDIRECT_URI = 'https://calendar.buildicy.com/google-callback'
+
 export function getOAuth2Client(customRedirectUri?: string) {
   const { clientId, clientSecret } = getClientCredentials()
-  const redirectUri = customRedirectUri || process.env['GOOGLE_REDIRECT_URI'] || 'http://localhost:3000/google-callback'
+  const redirectUri = customRedirectUri || GOOGLE_REDIRECT_URI
   return new google.auth.OAuth2(clientId, clientSecret, redirectUri)
 }
 
-export function getGoogleAuthUrl(userId: string, currentOrigin?: string): string {
+export function getGoogleAuthUrl(userId: string, _currentOrigin?: string): string {
   const { clientId, clientSecret } = getClientCredentials()
   if (!clientId || !clientSecret) {
     throw new Error('Google OAuth Client ID and Secret are not configured in environment variables.')
   }
 
-  const redirectUri = currentOrigin ? `${currentOrigin}/google-callback` : undefined
-  const oauth2Client = getOAuth2Client(redirectUri)
+  const oauth2Client = getOAuth2Client(GOOGLE_REDIRECT_URI)
 
   return oauth2Client.generateAuthUrl({
     access_type: 'offline',
@@ -34,9 +35,8 @@ export function getGoogleAuthUrl(userId: string, currentOrigin?: string): string
   })
 }
 
-export async function handleGoogleCallback(code: string, userId: string, currentOrigin?: string) {
-  const redirectUri = currentOrigin ? `${currentOrigin}/google-callback` : undefined
-  const oauth2Client = getOAuth2Client(redirectUri)
+export async function handleGoogleCallback(code: string, userId: string, _currentOrigin?: string) {
+  const oauth2Client = getOAuth2Client(GOOGLE_REDIRECT_URI)
 
   const { tokens } = await oauth2Client.getToken(code)
   oauth2Client.setCredentials(tokens)
