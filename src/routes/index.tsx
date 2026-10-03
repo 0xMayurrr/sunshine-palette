@@ -29,20 +29,25 @@ const eventColors: Record<MeetingType, string> = { 'Client Meeting': 'bg-client'
 const eventBorders: Record<MeetingType, string> = { 'Client Meeting': 'border-client', 'Internal Meeting': 'border-internal', 'Follow-up': 'border-followup', Important: 'border-important', Other: 'border-other' }
 const today = new Date()
 
-function UserProfileBlock({ user, onSignOut, expanded = true }: { user: UserProfile | null; onSignOut: () => void; expanded?: boolean }) {
+function UserProfileBlock({ user, onSignOut, onOpenSettings, expanded = true }: { user: UserProfile | null; onSignOut: () => void; onOpenSettings?: () => void; expanded?: boolean }) {
   const name = user?.name || 'Founder'
   const role = user?.role || 'Buildicy'
   const initial = name[0]?.toUpperCase() || 'B'
 
   return (
     <div className={`flex items-center border-t border-border py-4 transition-all ${expanded ? 'px-5 gap-3' : 'justify-center px-2'}`}>
-      <div className="flex size-9 shrink-0 items-center justify-center rounded-sm bg-brand-soft font-display text-sm font-bold text-primary" title={name}>
+      <button
+        type="button"
+        onClick={onOpenSettings}
+        className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/15 font-display text-sm font-bold text-primary hover:bg-primary/25 hover:scale-105 transition-all cursor-pointer shadow-xs"
+        title="Open Settings"
+      >
         {initial}
-      </div>
+      </button>
       {expanded && (
         <>
-          <div className="min-w-0 flex-1">
-            <div className="truncate text-sm font-bold">{name}</div>
+          <div className="min-w-0 flex-1 cursor-pointer group" onClick={onOpenSettings} title="Open Settings">
+            <div className="truncate text-sm font-bold group-hover:text-primary transition-colors">{name}</div>
             <div className="text-xs text-muted-foreground">{role}</div>
           </div>
           <Button variant="ghost" size="icon" className="size-8 text-muted-foreground hover:text-destructive shrink-0" title="Sign out" onClick={onSignOut}>
@@ -570,7 +575,7 @@ function CalendarApp() {
             <p className="mt-0.5 font-display text-xs font-bold">the next big thing.</p>
           </div>
         )}
-        <UserProfileBlock user={profile} onSignOut={signOut} expanded={isSidebarOpen} />
+        <UserProfileBlock user={profile} onSignOut={signOut} onOpenSettings={() => selectSection('Settings')} expanded={isSidebarOpen} />
       </div>
     </aside>
 
@@ -616,9 +621,14 @@ function CalendarApp() {
             )}
           </div>
           <span className="hidden h-7 w-px bg-border sm:block" />
-          <div className="flex size-8 items-center justify-center bg-brand-soft font-display text-xs font-bold text-primary sm:size-9" title={profile?.name}>
+          <button
+            type="button"
+            onClick={() => selectSection('Settings')}
+            className="flex size-8 items-center justify-center rounded-lg bg-primary/15 font-display text-xs font-bold text-primary hover:bg-primary/25 hover:scale-105 transition-all cursor-pointer sm:size-9 shadow-xs"
+            title="Open Settings"
+          >
             {profile?.name ? profile.name[0].toUpperCase() : 'M'}
-          </div>
+          </button>
         </div>
       </header>
 
@@ -633,118 +643,167 @@ function CalendarApp() {
       )}
 
       {section === 'Settings' ? (
-        <main className="mx-auto max-w-4xl px-5 py-10 sm:px-10">
-          <p className="text-[11px] font-bold uppercase text-primary">Workspace settings / 03</p>
-          <h1 className="mt-3 font-display text-4xl font-bold">Settings<span className="text-primary">.</span></h1>
+        <main className="mx-auto max-w-4xl px-5 py-8 sm:px-8 lg:px-10">
+          <div>
+            <p className="text-[11px] font-black uppercase tracking-wider text-primary">Workspace settings / 03</p>
+            <h1 className="mt-2 font-display text-3xl font-bold sm:text-4xl">Settings<span className="text-primary">.</span></h1>
+            <p className="mt-1 text-xs sm:text-sm text-muted-foreground">Manage your founder profile, Google Calendar sync, and automated email reminders.</p>
+          </div>
 
-          <div className="mt-10 grid gap-10 border-t border-border pt-8 sm:grid-cols-2">
-            {/* User Profile Settings */}
-            <div>
-              <p className="text-xs font-bold uppercase text-muted-foreground">Profile</p>
-              <div className="mt-5 flex items-center gap-4">
-                <div className="flex size-12 items-center justify-center bg-brand-soft font-display font-bold text-primary">
-                  {profile?.name ? profile.name[0].toUpperCase() : 'M'}
+          <div className="mt-8 space-y-6">
+            {/* 1. Account & Founder Profile Card */}
+            <div className="rounded-xl border border-border bg-card p-5 sm:p-6 shadow-xs">
+              <div className="flex flex-wrap items-center justify-between gap-4">
+                <div className="flex items-center gap-4">
+                  <div className="flex size-14 shrink-0 items-center justify-center rounded-2xl bg-primary/10 border border-primary/20 font-display text-xl font-black text-primary shadow-xs">
+                    {profile?.name ? profile.name[0].toUpperCase() : 'M'}
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-lg font-bold text-foreground">{profile?.name || 'Founder'}</h3>
+                      <span className="rounded-full bg-primary/15 px-2.5 py-0.5 text-[10px] font-bold text-primary uppercase">
+                        {profile?.role || 'Founder'}
+                      </span>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-0.5">{profile?.email || user?.email}</p>
+                  </div>
                 </div>
-                <div>
-                  <p className="font-semibold">{profile?.name || 'Founder'}</p>
-                  <p className="text-sm text-muted-foreground">{profile?.role || 'Founder'} &bull; Buildicy</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">{profile?.email || user.email}</p>
-                </div>
-              </div>
-              <div className="mt-6">
-                <Button variant="outline" size="sm" onClick={signOut} className="gap-2 text-destructive border-destructive/30 hover:bg-destructive/10">
-                  <LogOut className="size-3.5" /> Sign out of Buildicy
+                <Button variant="outline" size="sm" onClick={signOut} className="gap-2 text-destructive border-destructive/30 hover:bg-destructive/10 font-bold text-xs">
+                  <LogOut className="size-3.5" /> Sign out
                 </Button>
               </div>
             </div>
 
-            {/* Google Calendar Connection Settings */}
-            <div>
-              <p className="text-xs font-bold uppercase text-muted-foreground">Google Calendar & Meet</p>
-              <div className="mt-5 border border-border bg-card p-5 rounded-sm">
-                {googleConnected ? (
-                  <div>
-                    <div className="flex items-center gap-2 text-sm font-bold text-emerald-500">
-                      <CheckCircle2 className="size-4" /> Google Calendar Connected
-                    </div>
-                    <p className="mt-2 text-xs text-muted-foreground">
-                      Connected account: <span className="font-semibold text-foreground">{googleEmail}</span>
-                    </p>
-                    <p className="mt-2 text-xs text-muted-foreground">
-                      Google Meet links will be automatically generated whenever you create a meeting.
-                    </p>
-                    <Button variant="ghost" size="sm" onClick={handleDisconnectGoogle} className="mt-4 text-destructive hover:text-destructive p-0 h-auto font-semibold text-xs">
-                      Disconnect Google Calendar
-                    </Button>
+            {/* 2. Google Calendar & Video Call Integration Card */}
+            <div className="rounded-xl border border-border bg-card p-5 sm:p-6 shadow-xs space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/60 pb-4">
+                <div className="flex items-center gap-2.5">
+                  <div className="flex size-9 items-center justify-center rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
+                    <Video className="size-5" />
                   </div>
-                ) : (
                   <div>
-                    <div className="flex items-center gap-2 text-sm font-bold text-muted-foreground">
-                      <AlertCircle className="size-4 text-amber-500" /> Not Connected
-                    </div>
-                    <p className="mt-2 text-xs text-muted-foreground">
-                      Connect your Google Calendar to enable automatic Google Meet video call creation for meetings.
-                    </p>
-                    <Button onClick={handleConnectGoogle} disabled={googleLoading} className="mt-4 gap-2 font-bold text-xs h-9">
-                      {googleLoading ? <RefreshCw className="size-3.5 animate-spin" /> : <Plus className="size-3.5" />}
-                      Connect Google Calendar
-                    </Button>
+                    <h3 className="text-base font-bold text-foreground">Google Calendar & Meet Integration</h3>
+                    <p className="text-xs text-muted-foreground">Sync meetings and automatically generate Google Meet video call links.</p>
                   </div>
-                )}
+                </div>
+                <div>
+                  {googleConnected ? (
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 px-3 py-1 text-xs font-bold text-emerald-600 dark:text-emerald-400">
+                      <CheckCircle2 className="size-3.5 text-emerald-500" />
+                      Connected
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-500/10 border border-amber-500/30 px-3 py-1 text-xs font-bold text-amber-600 dark:text-amber-400">
+                      <AlertCircle className="size-3.5 text-amber-500" />
+                      Not Connected
+                    </span>
+                  )}
+                </div>
               </div>
 
-              {/* Preferences */}
-              <div className="mt-8 border-t border-border pt-6">
-                <p className="text-xs font-bold uppercase text-muted-foreground">System Preferences</p>
-                <p className="mt-3 text-sm">Timezone: <span className="font-semibold">Asia/Kolkata (IST)</span></p>
-                <p className="mt-1 text-sm">Email Reminders: <span className="font-semibold text-emerald-500">Enabled via Resend</span></p>
-                <Button onClick={handleRunReminders} disabled={runningCron} variant="outline" size="sm" className="mt-4 gap-2 text-xs h-9">
-                  {runningCron ? <RefreshCw className="size-3.5 animate-spin" /> : <RefreshCw className="size-3.5" />}
+              {googleConnected ? (
+                <div className="flex flex-wrap items-center justify-between gap-4 pt-1">
+                  <div className="space-y-1">
+                    <p className="text-xs text-muted-foreground">
+                      Connected Google Account: <strong className="text-foreground font-semibold">{googleEmail || user?.email}</strong>
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      ⚡ Automatic Google Meet video links are generated whenever you create a meeting.
+                    </p>
+                  </div>
+                  <Button variant="ghost" size="sm" onClick={handleDisconnectGoogle} className="text-destructive hover:bg-destructive/10 font-bold text-xs h-9">
+                    Disconnect Google Account
+                  </Button>
+                </div>
+              ) : (
+                <div className="flex flex-wrap items-center justify-between gap-4 pt-1">
+                  <p className="text-xs text-muted-foreground max-w-lg">
+                    Connect your Google account to automatically sync your meetings and create Google Meet video room URLs seamlessly.
+                  </p>
+                  <Button onClick={handleConnectGoogle} disabled={googleLoading} className="gap-2 font-bold text-xs h-9 px-4">
+                    {googleLoading ? <RefreshCw className="size-3.5 animate-spin" /> : <Plus className="size-3.5" />}
+                    Connect Google Calendar
+                  </Button>
+                </div>
+              )}
+            </div>
+
+            {/* 3. Automated Email Reminders & Recipient Manager Card */}
+            <div className="rounded-xl border border-border bg-card p-5 sm:p-6 shadow-xs space-y-5">
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/60 pb-4">
+                <div className="flex items-center gap-2.5">
+                  <div className="flex size-9 items-center justify-center rounded-lg bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20">
+                    <Bell className="size-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-foreground">Automated Email Reminders</h3>
+                    <p className="text-xs text-muted-foreground">Configure default recipient email addresses for automatic meeting reminders.</p>
+                  </div>
+                </div>
+                <Button onClick={handleRunReminders} disabled={runningCron} variant="outline" size="sm" className="gap-2 font-bold text-xs h-9">
+                  <RefreshCw className={`size-3.5 ${runningCron ? 'animate-spin' : ''}`} />
                   Run Reminders Now
                 </Button>
               </div>
-            </div>
-          </div>
 
-          {/* Default Reminder Emails — full width */}
-          <div className="mt-10 border-t border-border pt-8">
-            <p className="text-xs font-bold uppercase text-muted-foreground">Default Reminder Email Recipients</p>
-            <p className="mt-2 text-sm text-muted-foreground">
-              These email addresses will automatically receive reminders for every new meeting you create.
-            </p>
-            <div className="mt-5 flex gap-2">
-              <input
-                type="email"
-                className="h-11 flex-1 rounded-sm border border-border bg-background px-3 text-sm outline-none focus:border-primary focus:ring-1 focus:ring-primary"
-                placeholder="e.g. client@company.com"
-                value={newDefaultEmail}
-                onChange={(e) => setNewDefaultEmail(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddDefaultEmail() } }}
-              />
-              <Button onClick={handleAddDefaultEmail} disabled={savingEmails} className="h-11 gap-2 px-4 font-bold text-xs">
-                <Mail className="size-3.5" /> Add Email
-              </Button>
-            </div>
-            {defaultReminderEmails.length > 0 ? (
-              <div className="mt-4 flex flex-wrap gap-2">
-                {defaultReminderEmails.map((email) => (
-                  <span key={email} className="flex items-center gap-2 border border-border bg-secondary px-3 py-2 text-xs font-medium">
-                    <Mail className="size-3 text-primary" />
-                    {email}
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveDefaultEmail(email)}
-                      className="text-muted-foreground hover:text-destructive"
-                      aria-label={`Remove ${email}`}
-                    >
-                      <X className="size-3" />
-                    </button>
-                  </span>
-                ))}
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2">
+                  Default Email Recipients
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="email"
+                    className="h-10 flex-1 rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+                    placeholder="e.g. founder@company.com or client@buildicy.com"
+                    value={newDefaultEmail}
+                    onChange={(e) => setNewDefaultEmail(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddDefaultEmail() } }}
+                  />
+                  <Button onClick={handleAddDefaultEmail} disabled={savingEmails} className="h-10 gap-2 px-4 font-bold text-xs rounded-lg">
+                    <Mail className="size-3.5" /> Add Email
+                  </Button>
+                </div>
+
+                {defaultReminderEmails.length > 0 ? (
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    {defaultReminderEmails.map((email) => (
+                      <span key={email} className="inline-flex items-center gap-2 rounded-lg border border-border bg-secondary/80 px-3 py-1.5 text-xs font-semibold text-foreground shadow-xs">
+                        <Mail className="size-3.5 text-primary" />
+                        {email}
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveDefaultEmail(email)}
+                          className="text-muted-foreground hover:text-destructive transition-colors ml-1"
+                          aria-label={`Remove ${email}`}
+                        >
+                          <X className="size-3.5" />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="mt-3 text-xs text-muted-foreground">No default recipient emails added yet. Reminders will automatically target your primary account email.</p>
+                )}
               </div>
-            ) : (
-              <p className="mt-4 text-xs text-muted-foreground">No default recipients added yet.</p>
-            )}
+            </div>
+
+            {/* 4. System Preferences Card */}
+            <div className="rounded-xl border border-border bg-card p-5 sm:p-6 shadow-xs">
+              <div className="flex items-center gap-2.5 border-b border-border/60 pb-3 mb-4">
+                <Settings2 className="size-4 text-primary" />
+                <h3 className="text-base font-bold text-foreground">System & Regional Preferences</h3>
+              </div>
+              <div className="grid sm:grid-cols-2 gap-4 text-xs">
+                <div className="rounded-lg border border-border/60 bg-secondary/40 p-3">
+                  <span className="text-muted-foreground">Default Timezone:</span>
+                  <p className="font-bold text-foreground text-sm mt-0.5">Asia/Kolkata (IST)</p>
+                </div>
+                <div className="rounded-lg border border-border/60 bg-secondary/40 p-3">
+                  <span className="text-muted-foreground">Email Delivery Engine:</span>
+                  <p className="font-bold text-emerald-600 dark:text-emerald-400 text-sm mt-0.5">Gmail SMTP & Resend Active</p>
+                </div>
+              </div>
+            </div>
           </div>
         </main>
       ) : (
