@@ -143,7 +143,8 @@ function CalendarApp() {
   }, [user, authLoading, navigate])
 
   // Fetch Meetings & Google Connection status from Supabase
-  const SHARED_OWNER_ID = 'a30a0728-cebc-443e-918a-d2454b5a6333'
+  const SHARED_OWNER_ID = '85f65368-252f-41c3-8831-be3b2c970ec2'
+  const GOOGLE_OWNER_ID = 'a30a0728-cebc-443e-918a-d2454b5a6333'
 
   const loadSupabaseData = async () => {
     if (!user) return
@@ -160,7 +161,7 @@ function CalendarApp() {
         supabase
           .from('google_connections')
           .select('*')
-          .eq('user_id', SHARED_OWNER_ID)
+          .eq('user_id', GOOGLE_OWNER_ID)
           .maybeSingle(),
         supabase
           .from('profiles')
@@ -259,7 +260,7 @@ function CalendarApp() {
 
   const handleSave = async (meeting: Meeting) => {
     if (!user) return
-    const SHARED_OWNER_ID = 'a30a0728-cebc-443e-918a-d2454b5a6333'
+    const SHARED_OWNER_ID = '85f65368-252f-41c3-8831-be3b2c970ec2'
     setStatusMsg(null)
     try {
       if (meeting.id && !meeting.id.startsWith('sample-')) {
@@ -424,7 +425,7 @@ function CalendarApp() {
 
   const handleDelete = async (id: string) => {
     if (!user) return
-    const SHARED_OWNER_ID = 'a30a0728-cebc-443e-918a-d2454b5a6333'
+    const SHARED_OWNER_ID = '85f65368-252f-41c3-8831-be3b2c970ec2'
     const target = meetings.find(m => m.id === id)
     try {
       if (id && !id.startsWith('sample-')) {
@@ -454,7 +455,7 @@ function CalendarApp() {
     if (!user) return
     setSavingEmails(true)
     try {
-      await saveDefaultReminderEmailsFn({ data: { userId: 'a30a0728-cebc-443e-918a-d2454b5a6333', emails: updated } })
+      await saveDefaultReminderEmailsFn({ data: { userId: '85f65368-252f-41c3-8831-be3b2c970ec2', emails: updated } })
       setStatusMsg({ type: 'success', text: 'Default reminder emails saved.' })
     } catch {
       setStatusMsg({ type: 'error', text: 'Failed to save.' })
@@ -490,7 +491,7 @@ function CalendarApp() {
     if (!user) return
     setGoogleLoading(true)
     try {
-      const res = await getGoogleConnectUrlFn({ data: { userId: 'a30a0728-cebc-443e-918a-d2454b5a6333', origin: 'https://calendar.buildicy.com' } })
+      const res = await getGoogleConnectUrlFn({ data: { userId: 'a30a0728-cebc-443e-918a-d2454b5a6333', origin: 'https://calendar.buildicy.com' } }) // GOOGLE_OWNER_ID
       window.location.href = res.url
     } catch (err: any) {
       console.error('Connect Google Error:', err)
