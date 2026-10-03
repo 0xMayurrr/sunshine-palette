@@ -2,11 +2,10 @@ import { createClient } from '@supabase/supabase-js'
 
 export function getSupabaseAdmin() {
   const supabaseUrl = process.env['VITE_SUPABASE_URL'] || process.env['SUPABASE_URL'] || ''
-  const serviceRoleKey = process.env['SUPABASE_SERVICE_ROLE_KEY'] || process.env['VITE_SUPABASE_ANON_KEY'] || ''
+  const serviceRoleKey = process.env['SUPABASE_SERVICE_ROLE_KEY'] || ''
 
-  if (!supabaseUrl || !serviceRoleKey) {
-    throw new Error('Missing Supabase URL or Service Role Key in environment variables')
-  }
+  if (!supabaseUrl) throw new Error('Missing VITE_SUPABASE_URL env var')
+  if (!serviceRoleKey) throw new Error('Missing SUPABASE_SERVICE_ROLE_KEY env var — anon key cannot bypass RLS')
 
   return createClient(supabaseUrl, serviceRoleKey, {
     auth: {

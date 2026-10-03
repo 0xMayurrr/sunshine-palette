@@ -1,7 +1,6 @@
-import { createFileRoute, useNavigate } from '@tanstack/react-router'
+import { createFileRoute } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 import { handleGoogleCallbackFn } from '@/lib/google-server-actions'
-import { useAuth } from '@/lib/auth-context'
 
 export const Route = createFileRoute('/google-callback')({
   component: GoogleCallbackPage,
@@ -9,7 +8,6 @@ export const Route = createFileRoute('/google-callback')({
 
 function GoogleCallbackPage() {
   const navigate = useNavigate()
-  const { user } = useAuth()
   const [status, setStatus] = useState('Connecting Google Calendar...')
   const [error, setError] = useState('')
 
@@ -17,7 +15,6 @@ function GoogleCallbackPage() {
     const searchParams = new URLSearchParams(window.location.search)
     const code = searchParams.get('code')
     const errorParam = searchParams.get('error')
-    const stateUserId = searchParams.get('state')
 
     if (errorParam) {
       setError(`Google OAuth error: ${errorParam}`)
@@ -29,17 +26,14 @@ function GoogleCallbackPage() {
       return
     }
 
-    if (!stateUserId) {
-      setError('Session expired. Please try connecting Google Calendar again.')
-      return
-    }
-
     const SHARED_OWNER_ID = '85f65368-252f-41c3-8831-be3b2c970ec2'
     handleGoogleCallbackFn({ data: { code, userId: SHARED_OWNER_ID, origin: 'https://calendar.buildicy.com' } })
-      .then(() => {
-        setStatus('Google Calendar connected successfully! Redirecting...')
+      .then((result) => {
+        console.log('Google callback result:', result)
+        setStatus(`Google Calendar connected! (${result.email || 'success'}) Redirecting...`)
         setTimeout(() => {
-          navigate({ to: '/' })
+          // Hard reload so main page re-fetches google connection status fresh
+          window.location.href = '/'
         }, 1500)
       })
       .catch((err) => {
@@ -62,7 +56,7 @@ function GoogleCallbackPage() {
             <h2 className="font-display text-lg font-bold text-destructive">Connection Failed</h2>
             <p className="mt-2 text-xs text-muted-foreground">{error}</p>
             <button
-              onClick={() => navigate({ to: '/' })}
+              onClick={() => { window.location.href = '/' }}
               className="mt-6 inline-flex h-9 items-center justify-center rounded-sm bg-primary px-4 text-xs font-bold text-primary-foreground"
             >
               Return to Calendar
