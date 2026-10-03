@@ -28,6 +28,67 @@ const colors: Record<MeetingType, string> = {
 const fieldClass = 'mt-2 h-11 w-full rounded-sm border border-border bg-background px-3 text-sm outline-none focus:border-primary focus:ring-1 focus:ring-primary'
 const labelClass = 'block text-[11px] font-bold uppercase text-muted-foreground'
 
+function TimePickerInput({ value, onChange, minTime }: { value: string; onChange: (v: string) => void; minTime?: string }) {
+  // value is HH:mm (24hr), convert to 12hr for display
+  const [hour, minute] = value ? value.split(':').map(Number) : [12, 0]
+  const isPM = hour >= 12
+  const hour12 = hour % 12 === 0 ? 12 : hour % 12
+
+  const setHour = (h: number) => {
+    const newHour = isPM ? (h === 12 ? 12 : h + 12) : (h === 12 ? 0 : h)
+    onChange(`${String(newHour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`)
+  }
+  const setMinute = (m: number) => {
+    onChange(`${String(hour).padStart(2, '0')}:${String(m).padStart(2, '0')}`)
+  }
+  const toggleAmPm = (period: 'AM' | 'PM') => {
+    let newHour = hour
+    if (period === 'AM' && hour >= 12) newHour = hour - 12
+    if (period === 'PM' && hour < 12) newHour = hour + 12
+    onChange(`${String(newHour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`)
+  }
+
+  return (
+    <div className="mt-2 flex h-11 w-full overflow-hidden rounded-sm border border-border bg-background focus-within:border-primary focus-within:ring-1 focus-within:ring-primary">
+      <select
+        className="h-full flex-1 bg-transparent px-2 text-sm outline-none"
+        value={hour12}
+        onChange={(e) => setHour(Number(e.target.value))}
+      >
+        {Array.from({ length: 12 }, (_, i) => i + 1).map((h) => (
+          <option key={h} value={h}>{String(h).padStart(2, '0')}</option>
+        ))}
+      </select>
+      <span className="flex items-center text-sm text-muted-foreground">:</span>
+      <select
+        className="h-full flex-1 bg-transparent px-2 text-sm outline-none"
+        value={minute}
+        onChange={(e) => setMinute(Number(e.target.value))}
+      >
+        {[0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55].map((m) => (
+          <option key={m} value={m}>{String(m).padStart(2, '0')}</option>
+        ))}
+      </select>
+      <div className="flex items-center border-l border-border">
+        {(['AM', 'PM'] as const).map((period) => (
+          <button
+            key={period}
+            type="button"
+            onClick={() => toggleAmPm(period)}
+            className={`h-full px-2.5 text-xs font-bold transition-colors ${
+              (period === 'AM' && !isPM) || (period === 'PM' && isPM)
+                ? 'bg-primary text-primary-foreground'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            {period}
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 export function MeetingDialog({ meeting, mode, isGoogleConnected, userId, onClose, onSave, onDelete, onDuplicate, onEdit }: Props) {
   const [draft, setDraft] = useState<Meeting | null>(meeting)
   const [confirmDelete, setConfirmDelete] = useState(false)
@@ -266,12 +327,12 @@ export function MeetingDialog({ meeting, mode, isGoogleConnected, userId, onClos
 
               <label className={labelClass}>
                 Start time
-                <input required type="time" className={fieldClass} value={draft.startTime} onChange={(e) => update('startTime', e.target.value)} />
+                <TimePickerInput value={draft.startTime} onChange={(v) => update('startTime', v)} />
               </label>
 
               <label className={labelClass}>
                 End time
-                <input required type="time" min={draft.startTime} className={fieldClass} value={draft.endTime} onChange={(e) => update('endTime', e.target.value)} />
+                <TimePickerInput value={draft.endTime} onChange={(v) => update('endTime', v)} minTime={draft.startTime} />
               </label>
             </div>
 
