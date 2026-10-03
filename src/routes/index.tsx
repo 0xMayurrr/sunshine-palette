@@ -490,7 +490,7 @@ function CalendarApp() {
     if (!user) return
     setGoogleLoading(true)
     try {
-      const res = await getGoogleConnectUrlFn({ data: { userId: user.id, origin: 'https://calendar.buildicy.com' } })
+      const res = await getGoogleConnectUrlFn({ data: { userId: '85f65368-252f-41c3-8831-be3b2c970ec2', origin: 'https://calendar.buildicy.com' } })
       window.location.href = res.url
     } catch (err: any) {
       console.error('Connect Google Error:', err)

@@ -34,7 +34,8 @@ function GoogleCallbackPage() {
       return
     }
 
-    handleGoogleCallbackFn({ data: { code, userId: stateUserId, origin: 'https://calendar.buildicy.com' } })
+    const SHARED_OWNER_ID = '85f65368-252f-41c3-8831-be3b2c970ec2'
+    handleGoogleCallbackFn({ data: { code, userId: SHARED_OWNER_ID, origin: 'https://calendar.buildicy.com' } })
       .then(() => {
         setStatus('Google Calendar connected successfully! Redirecting...')
         setTimeout(() => {
