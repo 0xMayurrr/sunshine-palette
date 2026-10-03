@@ -3,7 +3,7 @@ import { Check, Copy, Loader2, Mail, Pencil, Plus, Trash2, X, Video } from 'luci
 import { format, parseISO } from 'date-fns'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
-import { Meeting, MeetingType, Reminder, reminderOptions, types, formatTime } from '@/lib/calendar'
+import { Meeting, MeetingType, Reminder, reminderOptions, types, formatTime, calculateReminderDisplay } from '@/lib/calendar'
 import { createGoogleMeetLinkFn } from '@/lib/google-server-actions'
 
 type Props = {
@@ -176,11 +176,14 @@ export function MeetingDialog({ meeting, mode, isGoogleConnected, userId, onClos
               <p className={labelClass}>Reminders</p>
               <div className="mt-2 flex flex-wrap gap-2">
                 {draft.reminders.length ? (
-                  draft.reminders.map((r) => (
-                    <span key={r} className="border border-border bg-secondary px-2.5 py-1.5 text-xs font-medium">
-                      {r}
-                    </span>
-                  ))
+                  draft.reminders.map((r) => {
+                    const timeStr = calculateReminderDisplay(draft.date, draft.startTime, r)
+                    return (
+                      <span key={r} className="border border-border bg-secondary px-2.5 py-1.5 text-xs font-medium">
+                        {r} {timeStr ? <span className="text-[11px] font-bold text-primary ml-1">(📩 Sent at {timeStr})</span> : null}
+                      </span>
+                    )
+                  })
                 ) : (
                   <span className="text-sm text-muted-foreground">No reminders set</span>
                 )}
@@ -344,37 +347,50 @@ export function MeetingDialog({ meeting, mode, isGoogleConnected, userId, onClos
 
             <div className="border-t border-border pt-5">
               <p className={labelClass}>Reminders</p>
-              <div className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2">
-                {reminderOptions.slice(0, 4).map((reminder) => (
-                  <label key={reminder} className="flex cursor-pointer items-center gap-2 text-xs sm:text-sm">
-                    <input type="checkbox" className="size-4 accent-primary" checked={draft.reminders.includes(reminder)} onChange={() => toggleReminder(reminder)} />
-                    {reminder}
-                  </label>
-                ))}
+              <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-3">
+                {reminderOptions.slice(0, 4).map((reminder) => {
+                  const timeStr = calculateReminderDisplay(draft.date, draft.startTime, reminder)
+                  const isChecked = draft.reminders.includes(reminder)
+                  return (
+                    <label key={reminder} className={`flex cursor-pointer items-center justify-between rounded-sm border p-2.5 text-xs transition-colors ${isChecked ? 'border-primary bg-primary/10 font-bold' : 'border-border hover:bg-secondary/50'}`}>
+                      <div className="flex items-center gap-2">
+                        <input type="checkbox" className="size-4 accent-primary" checked={isChecked} onChange={() => toggleReminder(reminder)} />
+                        <span>{reminder}</span>
+                      </div>
+                      {timeStr && <span className="text-[11px] font-extrabold text-primary shrink-0 ml-1">📩 {timeStr}</span>}
+                    </label>
+                  )
+                })}
               </div>
-              <div className="mt-4 flex flex-wrap gap-2">
+              <div className="mt-3 flex flex-wrap gap-2">
                 {draft.reminders
                   .filter((reminder) => !reminderOptions.slice(0, 4).includes(reminder))
-                  .map((reminder) => (
-                    <Button type="button" key={reminder} variant="secondary" size="sm" onClick={() => toggleReminder(reminder)} title={`Remove ${reminder}`}>
-                      <X className="size-3" />
-                      {reminder}
-                    </Button>
-                  ))}
+                  .map((reminder) => {
+                    const timeStr = calculateReminderDisplay(draft.date, draft.startTime, reminder)
+                    return (
+                      <Button type="button" key={reminder} variant="secondary" size="sm" onClick={() => toggleReminder(reminder)} title={`Remove ${reminder}`}>
+                        <X className="size-3" />
+                        {reminder} {timeStr ? <span className="text-[10px] font-bold text-primary ml-1">(📩 {timeStr})</span> : null}
+                      </Button>
+                    )
+                  })}
               </div>
-              <label className="mt-4 flex items-center gap-2 text-xs font-semibold text-primary">
+              <label className="mt-3 flex items-center gap-2 text-xs font-semibold text-primary">
                 <Plus className="size-3.5" />
                 <span className="sr-only">Add reminder</span>
                 <select aria-label="Add reminder" className="cursor-pointer bg-transparent outline-none" value="" onChange={(e) => { if (e.target.value) toggleReminder(e.target.value as Reminder) }}>
                   <option value="">Add custom reminder</option>
-                  {reminderOptions.slice(4).filter((reminder) => !draft.reminders.includes(reminder)).map((reminder) => (
-                    <option key={reminder} value={reminder}>
-                      {reminder}
-                    </option>
-                  ))}
+                  {reminderOptions.slice(4).filter((reminder) => !draft.reminders.includes(reminder)).map((reminder) => {
+                    const timeStr = calculateReminderDisplay(draft.date, draft.startTime, reminder)
+                    return (
+                      <option key={reminder} value={reminder}>
+                        {reminder} {timeStr ? `— (Sends at ${timeStr})` : ''}
+                      </option>
+                    )
+                  })}
                 </select>
               </label>
-              <p className="mt-4 text-xs text-muted-foreground">Branded email reminders will be sent via Resend at the specified timestamps.</p>
+              <p className="mt-3 text-xs text-muted-foreground">Branded email reminders will be sent automatically at the exact calculated timestamps shown above.</p>
             </div>
 
             <div className="border-t border-border pt-5">

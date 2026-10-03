@@ -90,9 +90,17 @@ ${joinLink ? `<table width="100%" border="0" cellspacing="0" cellpadding="0"><tr
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const cronSecret = process.env['CRON_SECRET']
-  const secret = (req.query['secret'] as string) || req.headers['x-cron-secret'] as string || ''
+  const secret = (req.query['secret'] as string) || (req.headers['x-cron-secret'] as string) || ''
+  const authHeader = (req.headers['authorization'] as string) || ''
+  const isVercelCron = req.headers['x-vercel-cron'] === '1'
 
-  if (cronSecret && secret !== cronSecret) {
+  const isAuthorized =
+    !cronSecret ||
+    isVercelCron ||
+    secret === cronSecret ||
+    authHeader === `Bearer ${cronSecret}`
+
+  if (!isAuthorized) {
     return res.status(401).json({ error: 'Unauthorized' })
   }
 

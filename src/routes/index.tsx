@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { addDays, addMonths, addWeeks, eachDayOfInterval, endOfMonth, endOfWeek, format, isSameDay, isSameMonth, parseISO, startOfMonth, startOfWeek, subMonths, subWeeks } from 'date-fns'
 import { CalendarDays, ChevronLeft, ChevronRight, Clock3, Mail, Menu, Plus, Search, Settings2, X, LogOut, CheckCircle2, AlertCircle, RefreshCw, Pin } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import { MeetingDialog } from '@/components/calendar/MeetingDialog'
 import { blankMeeting, formatTime, Meeting, MeetingType, UserProfile } from '@/lib/calendar'
 import { useAuth } from '@/lib/auth-context'
@@ -92,8 +93,8 @@ function CalendarApp() {
     setDbLoading(true)
 
     try {
-      // Execute all 3 queries in parallel to minimize load time
-      const [meetingsRes, gConnRes, profileRes] = await Promise.all([
+      // Execute queries in parallel to minimize load time
+      const [meetingsRes, gConnRes, profileRes, remindersRes] = await Promise.all([
         supabase
           .from('meetings')
           .select('*')
@@ -109,7 +110,19 @@ function CalendarApp() {
           .select('default_reminder_emails')
           .eq('user_id', user.id)
           .limit(1),
+        supabase
+          .from('reminders')
+          .select('meeting_id, reminder_type')
+          .eq('user_id', user.id)
+          .neq('status', 'cancelled'),
       ])
+
+      // Map reminder types by meeting ID
+      const remindersByMeeting: Record<string, string[]> = {}
+      for (const r of remindersRes.data || []) {
+        if (!remindersByMeeting[r.meeting_id]) remindersByMeeting[r.meeting_id] = []
+        remindersByMeeting[r.meeting_id].push(r.reminder_type)
+      }
 
       // 1. Process Meetings
       if (meetingsRes.error) {
@@ -128,7 +141,7 @@ function CalendarApp() {
           meetingLink: m.meeting_link || '',
           google_event_id: m.google_event_id,
           google_meet_link: m.google_meet_link,
-          reminders: ['1 day before', '1 hour before'],
+          reminders: remindersByMeeting[m.id] && remindersByMeeting[m.id].length ? remindersByMeeting[m.id] : ['1 hour before'],
           reminderEmails: m.reminder_emails || [],
           status: m.status || 'scheduled',
         }))
@@ -162,6 +175,17 @@ function CalendarApp() {
     if (user) {
       loadSupabaseData()
     }
+  }, [user])
+
+  // Automatically check and process due reminders every 30 seconds while user is active on page
+  useEffect(() => {
+    if (!user) return
+    const runScheduler = () => {
+      runReminderSchedulerFn({ data: {} }).catch((err) => console.error('Auto reminder check failed:', err))
+    }
+    runScheduler()
+    const interval = setInterval(runScheduler, 30000)
+    return () => clearInterval(interval)
   }, [user])
 
   const filtered = useMemo(() => meetings.filter(m => `${m.title} ${m.client} ${m.type}`.toLowerCase().includes(search.toLowerCase())).sort((a,b) => `${a.date}${a.startTime}`.localeCompare(`${b.date}${b.startTime}`)), [meetings, search])
@@ -783,7 +807,7 @@ function CalendarApp() {
                 </div>
 
                 {view === 'Month' ? (
-                  <MonthView cursor={cursor} selected={selectedDate} meetings={filtered} onSelect={(date) => { setSelectedDate(date); create(date) }} onOpen={open} />
+                  <MonthView cursor={cursor} selected={selectedDate} meetings={filtered} onSelect={(date) => setSelectedDate(date)} onCreate={(date) => { setSelectedDate(date); create(date) }} onOpen={open} />
                 ) : (
                   <TimeView cursor={cursor} view={view} meetings={filtered} onSelect={(date) => { setSelectedDate(date); create(date) }} onOpen={open} />
                 )}
@@ -884,61 +908,169 @@ function EventCard({ meeting, onOpen, compact = false }: { meeting: Meeting; onO
   )
 }
 
-function MonthView({ cursor, selected, meetings, onSelect, onOpen }: { cursor: Date; selected: Date; meetings: Meeting[]; onSelect: (date: Date) => void; onOpen: (meeting: Meeting) => void }) {
+function MonthView({ cursor, selected, meetings, onSelect, onOpen, onCreate }: { cursor: Date; selected: Date; meetings: Meeting[]; onSelect: (date: Date) => void; onOpen: (meeting: Meeting) => void; onCreate: (date: Date) => void }) {
+  const [dayModalDate, setDayModalDate] = useState<Date | null>(null)
   const days = eachDayOfInterval({ start: startOfWeek(startOfMonth(cursor), { weekStartsOn: 1 }), end: endOfWeek(endOfMonth(cursor), { weekStartsOn: 1 }) })
   const grouped = useMemo(() => meetings.reduce<Record<string, Meeting[]>>((acc, meeting) => { (acc[meeting.date] ??= []).push(meeting); return acc }, {}), [meetings])
+
+  const modalMeetings = useMemo(() => {
+    if (!dayModalDate) return []
+    const key = format(dayModalDate, 'yyyy-MM-dd')
+    return (grouped[key] || []).sort((a, b) => a.startTime.localeCompare(b.startTime))
+  }, [dayModalDate, grouped])
+
   return (
-    <div className="overflow-hidden rounded-md border-2 border-border bg-card shadow-md">
-      <div className="grid calendar-grid border-b-2 border-border bg-muted/90">
-        {['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'].map((day) => (
-          <div key={day} className="px-1 py-2.5 text-center text-xs font-black tracking-wider text-foreground">
-            {day}
-          </div>
-        ))}
-      </div>
-      <div className="grid calendar-grid">
-        {days.map((day) => {
-          const key = format(day, 'yyyy-MM-dd')
-          const items = grouped[key] || []
-          const current = isSameDay(day, today)
-          const selectedDay = isSameDay(day, selected)
-          const isCurrentMonth = isSameMonth(day, cursor)
-          return (
-            <div
-              key={key}
-              role="button"
-              tabIndex={0}
-              aria-label={`Create meeting on ${format(day, 'MMMM d, yyyy')}`}
-              onClick={() => onSelect(day)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  e.preventDefault()
-                  onSelect(day)
-                }
-              }}
-              className={`group relative min-h-[90px] min-w-0 cursor-pointer border-b border-r border-border p-1.5 transition-colors hover:bg-primary/10 focus-visible:outline-2 focus-visible:outline-primary sm:min-h-[120px] sm:p-2 lg:min-h-[135px] ${
-                !isCurrentMonth ? 'bg-muted/60 text-muted-foreground/50' : 'bg-card text-foreground'
-              } ${selectedDay && !current ? 'ring-2 ring-inset ring-primary bg-primary/10' : ''}`}
-            >
-              <div className="mb-1.5 flex items-center justify-between">
-                <span className={`flex size-6.5 items-center justify-center rounded-md font-display text-xs sm:size-7 sm:text-sm ${
-                  current ? 'bg-primary text-primary-foreground font-black shadow-md ring-2 ring-primary/40' : 'font-extrabold text-foreground'
-                }`}>
-                  {format(day, 'd')}
-                </span>
-                <Plus className="hidden size-4 text-primary group-hover:block" />
-              </div>
-              <div className="space-y-1">
-                {items.slice(0, 3).map((m) => (
-                  <EventCard key={m.id} meeting={m} onOpen={onOpen} compact />
-                ))}
-                {items.length > 3 && <span className="block pl-1 text-[10px] font-black text-primary">+{items.length - 3} more</span>}
-              </div>
+    <>
+      <div className="overflow-hidden rounded-md border-2 border-border bg-card shadow-md">
+        <div className="grid calendar-grid border-b-2 border-border bg-muted/90">
+          {['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'].map((day) => (
+            <div key={day} className="px-1 py-2.5 text-center text-xs font-black tracking-wider text-foreground">
+              {day}
             </div>
-          )
-        })}
+          ))}
+        </div>
+        <div className="grid calendar-grid">
+          {days.map((day) => {
+            const key = format(day, 'yyyy-MM-dd')
+            const items = grouped[key] || []
+            const current = isSameDay(day, today)
+            const selectedDay = isSameDay(day, selected)
+            const isCurrentMonth = isSameMonth(day, cursor)
+            return (
+              <div
+                key={key}
+                role="button"
+                tabIndex={0}
+                aria-label={`View meetings on ${format(day, 'MMMM d, yyyy')}`}
+                onClick={() => {
+                  onSelect(day)
+                  if (items.length > 3) {
+                    setDayModalDate(day)
+                  } else {
+                    onCreate(day)
+                  }
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault()
+                    onSelect(day)
+                    if (items.length > 3) {
+                      setDayModalDate(day)
+                    } else {
+                      onCreate(day)
+                    }
+                  }
+                }}
+                className={`group relative min-h-[90px] min-w-0 cursor-pointer border-b border-r border-border p-1.5 transition-colors hover:bg-primary/10 focus-visible:outline-2 focus-visible:outline-primary sm:min-h-[120px] sm:p-2 lg:min-h-[135px] ${
+                  !isCurrentMonth ? 'bg-muted/60 text-muted-foreground/50' : 'bg-card text-foreground'
+                } ${selectedDay && !current ? 'ring-2 ring-inset ring-primary bg-primary/10' : ''}`}
+              >
+                <div className="mb-1.5 flex items-center justify-between">
+                  <span className={`flex size-6.5 items-center justify-center rounded-md font-display text-xs sm:size-7 sm:text-sm ${
+                    current ? 'bg-primary text-primary-foreground font-black shadow-md ring-2 ring-primary/40' : 'font-extrabold text-foreground'
+                  }`}>
+                    {format(day, 'd')}
+                  </span>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="hidden size-6 text-primary group-hover:flex"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onSelect(day)
+                      onCreate(day)
+                    }}
+                    title="Add new meeting"
+                  >
+                    <Plus className="size-4" />
+                  </Button>
+                </div>
+                <div className="space-y-1">
+                  {items.slice(0, 3).map((m) => (
+                    <EventCard key={m.id} meeting={m} onOpen={onOpen} compact />
+                  ))}
+                  {items.length > 3 && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        onSelect(day)
+                        setDayModalDate(day)
+                      }}
+                      className="flex w-full items-center justify-between rounded bg-primary/15 px-1.5 py-1 text-left text-[11px] font-black text-primary hover:bg-primary/25 transition-colors"
+                      title="Click to view all meetings for this day"
+                    >
+                      <span>+{items.length - 3} more</span>
+                      <ChevronRight className="size-3" />
+                    </button>
+                  )}
+                </div>
+              </div>
+            )
+          })}
+        </div>
       </div>
-    </div>
+
+      {/* Day Overview Schedule Dialog */}
+      {dayModalDate && (
+        <Dialog open={!!dayModalDate} onOpenChange={(open) => { if (!open) setDayModalDate(null) }}>
+          <DialogContent className="max-h-[85vh] max-w-[500px] gap-0 overflow-y-auto rounded-sm border-border bg-card p-0 sm:max-w-[500px]">
+            <DialogHeader className="border-b border-border px-6 py-5 text-left">
+              <div className="flex items-center justify-between pr-6">
+                <div>
+                  <p className="text-[10px] font-bold uppercase text-primary">Day Schedule</p>
+                  <DialogTitle className="mt-0.5 font-display text-xl font-bold">
+                    {format(dayModalDate, 'EEEE, MMMM d, yyyy')}
+                  </DialogTitle>
+                </div>
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    const dateToCreate = dayModalDate
+                    setDayModalDate(null)
+                    onCreate(dateToCreate)
+                  }}
+                  className="gap-1.5 font-bold text-xs"
+                >
+                  <Plus className="size-3.5" /> New Meeting
+                </Button>
+              </div>
+              <DialogDescription className="text-xs text-muted-foreground mt-1">
+                Showing all {modalMeetings.length} meetings scheduled for this date.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-2.5 p-6">
+              {modalMeetings.map((m) => {
+                const bgStyle = eventCardBgStyles[m.color] || eventCardBgStyles[m.type] || 'bg-purple-600 text-white font-bold'
+                return (
+                  <div
+                    key={m.id}
+                    onClick={() => {
+                      setDayModalDate(null)
+                      onOpen(m)
+                    }}
+                    className={`flex cursor-pointer items-center justify-between rounded-md p-3.5 transition-all ${bgStyle} hover:scale-[1.01] hover:shadow-md`}
+                  >
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="rounded bg-black/30 px-1.5 py-0.5 text-[10px] font-extrabold text-white">
+                          {formatTime(m.startTime)} – {formatTime(m.endTime)}
+                        </span>
+                        <span className="text-[10px] font-extrabold uppercase tracking-wide opacity-90">{m.type}</span>
+                      </div>
+                      <p className="mt-1.5 truncate text-sm font-extrabold">{m.title}</p>
+                      {m.client && <p className="mt-0.5 text-xs opacity-90 font-medium">Client: {m.client}</p>}
+                    </div>
+                    <ChevronRight className="size-5 shrink-0 opacity-80" />
+                  </div>
+                )
+              })}
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
+    </>
   )
 }
 
