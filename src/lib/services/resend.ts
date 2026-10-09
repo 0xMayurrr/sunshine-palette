@@ -13,6 +13,7 @@ export interface ReminderEmailPayload {
   googleMeetLink?: string
   meetingLink?: string
   minutesBefore: number
+  meetingId?: string
 }
 
 export function formatMinutesLabel(minutes: number): string {
@@ -118,6 +119,26 @@ export async function sendMeetingReminderEmail(payload: ReminderEmailPayload): P
             <tr><td align="center" style="padding-top:8px;">
               <a href="${escapeHtml(joinLink)}" target="_blank" style="display:inline-block;background-color:#7C3AED;color:#FFFFFF;font-size:14px;font-weight:700;text-decoration:none;padding:14px 32px;border-radius:8px;letter-spacing:0.3px;">Join Google Meet →</a>
             </td></tr>
+          </table>
+          ` : ''}
+
+          ${payload.meetingId ? `
+          <table width="100%" border="0" cellspacing="0" cellpadding="0" style="margin-top:20px;">
+            <tr><td style="padding-bottom:10px;text-align:center;font-size:12px;font-weight:700;color:#71717A;text-transform:uppercase;letter-spacing:0.5px;">Will you attend?</td></tr>
+            <tr>
+              <td align="center">
+                <table border="0" cellspacing="0" cellpadding="0">
+                  <tr>
+                    <td style="padding-right:12px;">
+                      <a href="https://calendar.buildicy.com/api/rsvp?meetingId=${escapeHtml(payload.meetingId)}&attendance=attending" target="_blank" style="display:inline-block;background-color:#16A34A;color:#FFFFFF;font-size:14px;font-weight:700;text-decoration:none;padding:12px 28px;border-radius:8px;">✅ Yes, Attending</a>
+                    </td>
+                    <td>
+                      <a href="https://calendar.buildicy.com/api/rsvp?meetingId=${escapeHtml(payload.meetingId)}&attendance=not_attending" target="_blank" style="display:inline-block;background-color:#DC2626;color:#FFFFFF;font-size:14px;font-weight:700;text-decoration:none;padding:12px 28px;border-radius:8px;">❌ No, Can't Make It</a>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
           </table>
           ` : ''}
         </td>

@@ -168,6 +168,7 @@ export async function processDueReminders(): Promise<{ processed: number; sent: 
       googleMeetLink: meeting.google_meet_link,
       meetingLink: meeting.meeting_link,
       minutesBefore: reminder.minutes_before,
+      meetingId: meeting.id,
     }
 
     // Resolve primary email — fallback to auth.users if profile.email is empty

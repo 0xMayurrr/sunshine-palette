@@ -187,3 +187,16 @@ export const saveDefaultReminderEmailsFn = createServerFn({ method: 'POST' })
     if (error) throw new Error(`Failed to save default reminder emails: ${error.message}`)
     return { success: true }
   })
+
+export const rsvpMeetingFn = createServerFn({ method: 'POST' })
+  .validator((data: { meetingId: string; attendance: 'attending' | 'not_attending' }) => data)
+  .handler(async ({ data }) => {
+    const { getSupabaseAdmin } = await import('./supabase-server')
+    const supabase = getSupabaseAdmin()
+    const { error } = await supabase
+      .from('meetings')
+      .update({ attendance: data.attendance })
+      .eq('id', data.meetingId)
+    if (error) throw new Error(`Failed to update attendance: ${error.message}`)
+    return { success: true, attendance: data.attendance }
+  })

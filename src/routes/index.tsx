@@ -5,7 +5,7 @@ import { CalendarDays, ChevronLeft, ChevronRight, Clock3, Mail, Menu, Plus, Sear
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import { MeetingDialog } from '@/components/calendar/MeetingDialog'
-import { blankMeeting, calculateReminderDisplay, formatTime, Meeting, MeetingType, UserProfile } from '@/lib/calendar'
+import { blankMeeting, calculateDuration, calculateReminderDisplay, categoryThemes, formatTime, Meeting, MeetingType, UserProfile } from '@/lib/calendar'
 import { useAuth } from '@/lib/auth-context'
 import { supabase } from '@/lib/supabase'
 import { createMeetingFn, deleteMeetingFn, disconnectGoogleFn, getGoogleConnectUrlFn, runReminderSchedulerFn, saveDefaultReminderEmailsFn, updateMeetingFn } from '@/lib/server-actions'
@@ -236,6 +236,7 @@ function CalendarApp() {
           reminders: remindersByMeeting[m.id] && remindersByMeeting[m.id].length ? remindersByMeeting[m.id] : ['1 hour before'],
           reminderEmails: m.reminder_emails || [],
           status: m.status || 'scheduled',
+          attendance: m.attendance || null,
         }))
         setMeetings(formatted)
       } else {
@@ -1051,11 +1052,11 @@ function CalendarApp() {
 }
 
 const eventCardBgStyles: Record<MeetingType, string> = {
-  'Client Meeting': 'bg-purple-600 text-white hover:bg-purple-700 shadow border-l-4 border-purple-950 font-bold',
-  'Internal Meeting': 'bg-emerald-600 text-white hover:bg-emerald-700 shadow border-l-4 border-emerald-950 font-bold',
-  'Follow-up': 'bg-amber-500 text-slate-950 hover:bg-amber-600 shadow border-l-4 border-amber-900 font-bold',
-  'Important': 'bg-rose-600 text-white hover:bg-rose-700 shadow border-l-4 border-rose-950 font-bold',
-  'Other': 'bg-indigo-600 text-white hover:bg-indigo-700 shadow border-l-4 border-indigo-950 font-bold',
+  'Client Meeting': 'bg-primary text-primary-foreground hover:bg-primary/90 shadow-xs border-l-2 border-primary/40 font-semibold',
+  'Internal Meeting': 'bg-emerald-600 text-white hover:bg-emerald-700 shadow-xs border-l-2 border-emerald-400/40 font-semibold',
+  'Follow-up': 'bg-amber-500 text-slate-950 hover:bg-amber-600 shadow-xs border-l-2 border-amber-300/40 font-semibold',
+  'Important': 'bg-rose-600 text-white hover:bg-rose-700 shadow-xs border-l-2 border-rose-400/40 font-semibold',
+  'Other': 'bg-slate-700 text-white hover:bg-slate-800 shadow-xs border-l-2 border-slate-500/40 font-semibold',
 }
 
 function EventCard({ meeting, onOpen, compact = false }: { meeting: Meeting; onOpen: (meeting: Meeting) => void; compact?: boolean }) {
@@ -1077,6 +1078,8 @@ function EventCard({ meeting, onOpen, compact = false }: { meeting: Meeting; onO
         {meeting.startTime}
       </span>
       <span className="truncate font-bold tracking-tight">{meeting.title}</span>
+      {meeting.attendance === 'attending' && <span className="ml-auto shrink-0 text-[10px]">✓</span>}
+      {meeting.attendance === 'not_attending' && <span className="ml-auto shrink-0 text-[10px]">✗</span>}
     </Button>
   )
 }
@@ -1288,123 +1291,202 @@ function TimeView({ cursor, view, meetings, onSelect, onOpen }: { cursor: Date; 
   )
 }
 
-function UpcomingList({ meetings, onOpen, search }: { meetings: Meeting[]; onOpen: (meeting: Meeting) => void; long?: boolean; search: string }) {
+function UpcomingList({ meetings, onOpen, long = false, search }: { meetings: Meeting[]; onOpen: (meeting: Meeting) => void; long?: boolean; search: string }) {
   if (!meetings.length) return (
-    <div className="py-16 text-center border border-dashed border-border/70 rounded-2xl bg-card/40 px-4">
-      <CalendarDays className="mx-auto size-10 text-primary/40" />
-      <p className="mt-4 text-base font-bold">{search ? 'No matching meetings found' : 'Nothing on the horizon'}</p>
-      <p className="mt-1 text-xs text-muted-foreground max-w-sm mx-auto">{search ? 'Try adjusting your search query.' : 'Your upcoming agenda and scheduled reminder notifications will appear here.'}</p>
+    <div className="py-12 text-center border border-dashed border-border/70 rounded-xl bg-card/40 px-4">
+      <CalendarDays className="mx-auto size-8 text-primary/40" />
+      <p className="mt-3 text-sm font-bold text-foreground">{search ? 'No matching meetings found' : 'Nothing on the horizon'}</p>
+      <p className="mt-1 text-xs text-muted-foreground max-w-xs mx-auto">{search ? 'Try adjusting your search query.' : 'Your upcoming agenda and scheduled reminder notifications will appear here.'}</p>
     </div>
   )
 
   let previousGroup = ''
 
   return (
-    <div className="space-y-4">
+    <div className="relative pl-3 sm:pl-4">
+      {/* Continuous Timeline Thread Line */}
+      <div className="absolute left-[19px] sm:left-[23px] top-4 bottom-4 w-0.5 bg-border/60" />
+
       {meetings.map((m) => {
         const date = parseISO(m.date)
         const group = isSameDay(date, today) ? 'TODAY' : isSameDay(date, addDays(today, 1)) ? 'TOMORROW' : format(date, 'EEEE, MMMM d').toUpperCase()
         const showGroup = previousGroup !== group
         previousGroup = group
 
-        const categoryTheme: Record<MeetingType, { badge: string; border: string; dot: string }> = {
-          'Client Meeting': { badge: 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20', border: 'border-l-purple-600', dot: 'bg-purple-600' },
-          'Internal Meeting': { badge: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20', border: 'border-l-emerald-600', dot: 'bg-emerald-600' },
-          'Follow-up': { badge: 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20', border: 'border-l-amber-600', dot: 'bg-amber-600' },
-          'Important': { badge: 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20', border: 'border-l-rose-600', dot: 'bg-rose-600' },
-          'Other': { badge: 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/20', border: 'border-l-indigo-600', dot: 'bg-indigo-600' },
-        }
-
-        const theme = categoryTheme[m.color || m.type] || categoryTheme['Client Meeting']
+        const theme = categoryThemes[m.color || m.type] || categoryThemes['Client Meeting']
+        const duration = calculateDuration(m.startTime, m.endTime)
 
         return (
-          <div key={m.id} className="space-y-2">
+          <div key={m.id} className="relative z-10 mb-4 last:mb-0">
             {showGroup && (
-              <div className="flex items-center gap-3 pt-5 pb-1">
-                <span className="flex items-center gap-1.5 rounded-full bg-primary/10 border border-primary/20 px-3 py-1 text-[11px] font-black tracking-wider text-primary uppercase">
-                  <CalendarDays className="size-3.5" />
+              <div className="flex items-center gap-2.5 pt-4 pb-2.5 -ml-3 sm:-ml-4">
+                <span className="inline-flex items-center gap-1.5 rounded-md bg-primary/10 border border-primary/20 px-2.5 py-0.5 text-[10px] font-black tracking-widest text-primary uppercase">
+                  <CalendarDays className="size-3" />
                   {group}
                 </span>
-                <div className="h-px flex-1 bg-border/60" />
+                <div className="h-px flex-1 bg-border/50" />
               </div>
             )}
 
-            <div
-              onClick={() => onOpen(m)}
-              className={`group relative flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-xl border border-border bg-card p-4 sm:p-5 shadow-sm hover:shadow-lg hover:border-primary/40 transition-all duration-200 cursor-pointer overflow-hidden border-l-4 ${theme.border}`}
-            >
-              <div className="min-w-0 flex-1 space-y-2.5">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className={`inline-flex items-center gap-1.5 rounded-md border px-2.5 py-0.5 text-[11px] font-bold ${theme.badge}`}>
-                    <span className={`size-1.5 rounded-full ${theme.dot} animate-pulse`} />
-                    {m.type}
-                  </span>
-
-                  <span className="inline-flex items-center gap-1 rounded-md bg-secondary px-2.5 py-0.5 text-[11px] font-bold text-foreground">
-                    <Clock3 className="size-3 text-muted-foreground" />
-                    {formatTime(m.startTime)} – {formatTime(m.endTime)}
-                  </span>
-
-                  {m.google_meet_link && (
-                    <a
-                      href={m.google_meet_link}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      onClick={(e) => e.stopPropagation()}
-                      className="inline-flex items-center gap-1.5 rounded-md bg-blue-500/10 border border-blue-500/20 px-2.5 py-0.5 text-[11px] font-bold text-blue-600 dark:text-blue-400 hover:bg-blue-500/20 transition-colors"
-                    >
-                      <Video className="size-3 text-blue-500" />
-                      Google Meet
-                    </a>
-                  )}
+            {!long ? (
+              /* SIDEBAR TIMELINE ITEM */
+              <div className="group relative flex items-start gap-3">
+                {/* Timeline node dot */}
+                <div className="relative top-3 flex shrink-0 items-center justify-center">
+                  <div className={`size-3 rounded-full border-2 border-background ${theme.accentBar} shadow-2xs group-hover:scale-125 transition-transform`} />
                 </div>
 
-                <div>
-                  <h3 className="text-base sm:text-lg font-bold text-foreground group-hover:text-primary transition-colors truncate">
-                    {m.title}
-                  </h3>
-                  {m.client && (
-                    <p className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground font-medium">
-                      <User className="size-3.5 text-primary/80" />
-                      <span>Client: <strong className="text-foreground">{m.client}</strong></span>
-                    </p>
-                  )}
-                </div>
-
-                {m.reminders && m.reminders.length > 0 && (
-                  <div className="mt-2 flex flex-wrap items-center gap-2 pt-2.5 border-t border-border/50">
-                    <span className="flex items-center gap-1 text-[11px] font-bold text-primary">
-                      <Bell className="size-3 text-amber-500 animate-pulse" />
-                      Notifications:
-                    </span>
-                    {m.reminders.map((r, idx) => {
-                      const triggerDisplay = calculateReminderDisplay(m.date, m.startTime, r)
-                      return (
-                        <span key={idx} className="inline-flex items-center gap-1.5 rounded-md bg-secondary/80 border border-border/80 px-2.5 py-1 text-[11px] font-medium text-foreground">
-                          <span>{r}</span>
-                          {triggerDisplay && (
-                            <span className="font-bold text-primary bg-primary/10 px-1.5 py-0.2 rounded text-[10px]">
-                              📩 {triggerDisplay}
-                            </span>
-                          )}
-                        </span>
-                      )
-                    })}
-                  </div>
-                )}
-              </div>
-
-              <div className="flex shrink-0 items-center sm:self-center">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="gap-1.5 rounded-lg text-xs font-bold border-border group-hover:border-primary group-hover:bg-primary group-hover:text-primary-foreground transition-all shadow-none"
+                {/* Card Container */}
+                <div
+                  onClick={() => onOpen(m)}
+                  className="flex-1 min-w-0 rounded-xl border border-border/80 bg-card p-3 shadow-2xs hover:shadow-md hover:border-primary/40 transition-all duration-200 cursor-pointer space-y-2"
                 >
-                  <span>Agenda</span>
-                  <ArrowRight className="size-3.5 transition-transform group-hover:translate-x-1" />
-                </Button>
+                  {/* Top Bar: Time & Category */}
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-mono text-xs font-bold text-foreground tracking-tight">
+                      {formatTime(m.startTime)}
+                      {duration && <span className="ml-1 text-[10px] font-sans font-medium text-muted-foreground">({duration})</span>}
+                    </span>
+                    <span className={`inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] font-bold ${theme.badge}`}>
+                      <span className={`size-1 rounded-full ${theme.dot}`} />
+                      {m.type}
+                    </span>
+                  </div>
+
+                  {/* Title & Client */}
+                  <div>
+                    <h4 className="text-xs sm:text-sm font-bold leading-snug text-foreground group-hover:text-primary transition-colors line-clamp-2">
+                      {m.title}
+                    </h4>
+                    {m.client && (
+                      <p className="mt-1 flex items-center gap-1 text-[11px] text-muted-foreground font-medium truncate">
+                        <User className="size-3 text-primary/70 shrink-0" />
+                        <span className="truncate">Client: <strong className="text-foreground/90 font-semibold">{m.client}</strong></span>
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Meet Link */}
+                  {m.google_meet_link && (
+                    <div className="pt-0.5">
+                      <a
+                        href={m.google_meet_link}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                        className="inline-flex items-center gap-1 rounded-md bg-blue-500/10 border border-blue-500/20 px-2 py-0.5 text-[10px] font-bold text-blue-600 dark:text-blue-400 hover:bg-blue-500/20 transition-colors"
+                      >
+                        <Video className="size-3 text-blue-500" />
+                        Google Meet
+                      </a>
+                    </div>
+                  )}
+
+                  {/* Notifications */}
+                  {m.reminders && m.reminders.length > 0 && (
+                    <div className="pt-1.5 border-t border-border/40 flex flex-wrap items-center gap-1">
+                      <Bell className="size-3 text-muted-foreground shrink-0" />
+                      {m.reminders.map((r, idx) => {
+                        const triggerDisplay = calculateReminderDisplay(m.date, m.startTime, r)
+                        return (
+                          <span key={idx} className="inline-flex items-center gap-1 rounded bg-secondary/80 px-1.5 py-0.5 text-[10px] font-medium text-foreground/80">
+                            <span>{r}</span>
+                            {triggerDisplay && <span className="font-semibold text-primary">· {triggerDisplay}</span>}
+                          </span>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
+            ) : (
+              /* WIDE HORIZON TIMELINE ITEM */
+              <div className="group relative flex items-start gap-4 sm:gap-5">
+                {/* Timeline node dot */}
+                <div className="relative top-4 flex shrink-0 items-center justify-center">
+                  <div className={`size-3.5 rounded-full border-2 border-background ${theme.accentBar} shadow-xs group-hover:scale-125 transition-transform`} />
+                </div>
+
+                {/* Card Container */}
+                <div
+                  onClick={() => onOpen(m)}
+                  className="flex-1 min-w-0 rounded-xl border border-border/80 bg-card p-4 sm:p-5 shadow-2xs hover:shadow-md hover:border-primary/40 transition-all duration-200 cursor-pointer flex flex-col md:flex-row md:items-center justify-between gap-4"
+                >
+                  <div className="min-w-0 flex-1 space-y-2.5">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="inline-flex items-center gap-1 rounded-md bg-secondary border border-border/60 px-2.5 py-0.5 font-mono text-xs font-bold text-foreground">
+                        <Clock3 className="size-3 text-muted-foreground" />
+                        {formatTime(m.startTime)} – {formatTime(m.endTime)}
+                        {duration && <span className="ml-1 font-sans text-[10px] font-semibold text-muted-foreground">({duration})</span>}
+                      </span>
+
+                      <span className={`inline-flex items-center gap-1.5 rounded-md border px-2.5 py-0.5 text-[11px] font-bold ${theme.badge}`}>
+                        <span className={`size-1.5 rounded-full ${theme.dot}`} />
+                        {m.type}
+                      </span>
+
+                      {m.google_meet_link && (
+                        <a
+                          href={m.google_meet_link}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                          className="inline-flex items-center gap-1.5 rounded-md bg-blue-500/10 border border-blue-500/20 px-2.5 py-0.5 text-[11px] font-bold text-blue-600 dark:text-blue-400 hover:bg-blue-500/20 transition-colors"
+                        >
+                          <Video className="size-3 text-blue-500" />
+                          Google Meet
+                        </a>
+                      )}
+                    </div>
+
+                    <div>
+                      <h3 className="text-base sm:text-lg font-bold font-display text-foreground group-hover:text-primary transition-colors truncate">
+                        {m.title}
+                      </h3>
+                      {m.client && (
+                        <p className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground font-medium">
+                          <User className="size-3.5 text-primary/80 shrink-0" />
+                          <span>Client: <strong className="text-foreground">{m.client}</strong></span>
+                        </p>
+                      )}
+                    </div>
+
+                    {m.reminders && m.reminders.length > 0 && (
+                      <div className="mt-2 flex flex-wrap items-center gap-2 pt-2.5 border-t border-border/50">
+                        <span className="flex items-center gap-1 text-[11px] font-bold text-muted-foreground">
+                          <Bell className="size-3 text-primary/80 shrink-0" />
+                          <span>Notifications:</span>
+                        </span>
+                        {m.reminders.map((r, idx) => {
+                          const triggerDisplay = calculateReminderDisplay(m.date, m.startTime, r)
+                          return (
+                            <span key={idx} className="inline-flex items-center gap-1.5 rounded-md bg-secondary/80 border border-border/80 px-2.5 py-1 text-[11px] font-medium text-foreground">
+                              <span>{r}</span>
+                              {triggerDisplay && (
+                                <span className="font-bold text-primary bg-primary/10 px-1.5 py-0.5 rounded text-[10px]">
+                                  {triggerDisplay}
+                                </span>
+                              )}
+                            </span>
+                          )
+                        })}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex shrink-0 items-center sm:self-center">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="gap-1.5 rounded-lg text-xs font-bold border-border/80 group-hover:border-primary group-hover:bg-primary group-hover:text-primary-foreground transition-all shadow-none"
+                    >
+                      <span>Agenda</span>
+                      <ArrowRight className="size-3.5 transition-transform group-hover:translate-x-1" />
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )
       })}
