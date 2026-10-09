@@ -30,7 +30,7 @@ const labelClass = 'block text-[11px] font-bold uppercase text-muted-foreground'
 
 function TimePickerInput({ value, onChange, minTime }: { value: string; onChange: (v: string) => void; minTime?: string }) {
   // value is HH:mm (24hr), convert to 12hr for display
-  const [hour, minute] = value ? value.split(':').map(Number) : [12, 0]
+  const [hour = 12, minute = 0] = value ? value.split(':').map(Number) : [12, 0]
   const isPM = hour >= 12
   const hour12 = hour % 12 === 0 ? 12 : hour % 12
 
@@ -240,8 +240,8 @@ export function MeetingDialog({ meeting, mode, isGoogleConnected, userId, onClos
                   draft.reminders.map((r) => {
                     const timeStr = calculateReminderDisplay(draft.date, draft.startTime, r)
                     return (
-                      <span key={r} className="border border-border bg-secondary px-2.5 py-1.5 text-xs font-medium">
-                        {r} {timeStr ? <span className="text-[11px] font-bold text-primary ml-1">(📩 Sent at {timeStr})</span> : null}
+                      <span key={r} className="border border-border bg-secondary px-2.5 py-1.5 text-xs font-medium rounded-md">
+                        {r} {timeStr ? <span className="text-[11px] font-bold text-primary ml-1">(Sent at {timeStr})</span> : null}
                       </span>
                     )
                   })

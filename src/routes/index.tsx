@@ -1054,7 +1054,7 @@ function CalendarApp() {
 const eventCardBgStyles: Record<MeetingType, string> = {
   'Client Meeting': 'bg-primary text-primary-foreground hover:bg-primary/90 shadow-xs border-l-2 border-primary/40 font-semibold',
   'Internal Meeting': 'bg-emerald-600 text-white hover:bg-emerald-700 shadow-xs border-l-2 border-emerald-400/40 font-semibold',
-  'Follow-up': 'bg-amber-500 text-slate-950 hover:bg-amber-600 shadow-xs border-l-2 border-amber-300/40 font-semibold',
+  'Follow-up': 'bg-amber-600 text-white hover:bg-amber-700 shadow-xs border-l-2 border-amber-400/40 font-extrabold',
   'Important': 'bg-rose-600 text-white hover:bg-rose-700 shadow-xs border-l-2 border-rose-400/40 font-semibold',
   'Other': 'bg-slate-700 text-white hover:bg-slate-800 shadow-xs border-l-2 border-slate-500/40 font-semibold',
 }
