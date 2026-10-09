@@ -7,7 +7,6 @@ export const Route = createFileRoute('/google-callback')({
 })
 
 function GoogleCallbackPage() {
-  const navigate = useNavigate()
   const [status, setStatus] = useState('Connecting Google Calendar...')
   const [error, setError] = useState('')
 
