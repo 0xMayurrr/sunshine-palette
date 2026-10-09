@@ -52,13 +52,21 @@ export async function handleGoogleCallback(code: string, userId: string, _curren
   }
 
   const supabase = getSupabaseAdmin()
+
+  // Fetch existing connection to preserve refresh_token if Google doesn't return a new one
+  const { data: existing } = await supabase
+    .from('google_connections')
+    .select('refresh_token')
+    .eq('user_id', userId)
+    .maybeSingle()
+
   const { error } = await supabase
     .from('google_connections')
     .upsert({
       user_id: userId,
       google_account_email: googleEmail,
       access_token: tokens.access_token || '',
-      refresh_token: tokens.refresh_token || null,
+      refresh_token: tokens.refresh_token || existing?.refresh_token || null,
       token_expiry: tokens.expiry_date || Date.now() + 3600 * 1000,
       updated_at: new Date().toISOString(),
     }, { onConflict: 'user_id' })
@@ -98,12 +106,19 @@ export async function getAuthenticatedGoogleClient(userId: string) {
         .from('google_connections')
         .update({
           access_token: newTokens.access_token || connection.access_token,
+          refresh_token: newTokens.refresh_token || connection.refresh_token,
           token_expiry: newTokens.expiry_date || Date.now() + 3600 * 1000,
           updated_at: new Date().toISOString(),
         })
         .eq('user_id', userId)
+      oauth2Client.setCredentials({
+        access_token: newTokens.access_token || connection.access_token,
+        refresh_token: newTokens.refresh_token || connection.refresh_token,
+        expiry_date: newTokens.expiry_date || Date.now() + 3600 * 1000,
+      })
     } catch (refreshErr) {
       console.error('Error refreshing Google token:', refreshErr)
+      return null
     }
   }
 
