@@ -9,6 +9,7 @@ import { blankMeeting, calculateReminderDisplay, formatTime, Meeting, MeetingTyp
 import { useAuth } from '@/lib/auth-context'
 import { supabase } from '@/lib/supabase'
 import { createMeetingFn, deleteMeetingFn, disconnectGoogleFn, getGoogleConnectUrlFn, runReminderSchedulerFn, saveDefaultReminderEmailsFn, updateMeetingFn } from '@/lib/server-actions'
+import { handleGoogleCallbackFn } from '@/lib/google-server-actions'
 import { isWebAuthnSupported, registerPasskey } from '@/lib/webauthn'
 
 export function BuildicyLogoLoading() {
@@ -145,12 +146,32 @@ function CalendarApp() {
   // Handle Google OAuth redirect result
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
+    const code = params.get('google_code')
+    const error = params.get('google_error')
+
+    if (error) {
+      setStatusMsg({ type: 'error', text: `Google connection failed: ${error}` })
+      window.history.replaceState({}, '', '/')
+      return
+    }
+
+    if (code) {
+      window.history.replaceState({}, '', '/')
+      const GOOGLE_OWNER_ID = 'a30a0728-cebc-443e-918a-d2454b5a6333'
+      handleGoogleCallbackFn({ data: { code, userId: GOOGLE_OWNER_ID, origin: 'https://calendar.buildicy.com' } })
+        .then(() => {
+          setStatusMsg({ type: 'success', text: 'Google Calendar connected successfully!' })
+          loadSupabaseData()
+        })
+        .catch((err: any) => {
+          setStatusMsg({ type: 'error', text: `Google connection failed: ${err.message}` })
+        })
+      return
+    }
+
     if (params.get('google_connected')) {
       setStatusMsg({ type: 'success', text: 'Google Calendar connected successfully!' })
       loadSupabaseData()
-      window.history.replaceState({}, '', '/')
-    } else if (params.get('google_error')) {
-      setStatusMsg({ type: 'error', text: `Google connection failed: ${params.get('google_error')}` })
       window.history.replaceState({}, '', '/')
     }
   }, [])
