@@ -8,7 +8,7 @@ export function getClientCredentials() {
 }
 
 
-const GOOGLE_REDIRECT_URI = 'https://calendar.buildicy.com/google-callback'
+const GOOGLE_REDIRECT_URI = 'https://calendar.buildicy.com/api/auth/google/callback'
 
 export function getOAuth2Client(customRedirectUri?: string) {
   const { clientId, clientSecret } = getClientCredentials()

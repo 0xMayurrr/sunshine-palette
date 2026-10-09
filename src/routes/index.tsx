@@ -142,6 +142,19 @@ function CalendarApp() {
     }
   }, [user, authLoading, navigate])
 
+  // Handle Google OAuth redirect result
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('google_connected')) {
+      setStatusMsg({ type: 'success', text: 'Google Calendar connected successfully!' })
+      loadSupabaseData()
+      window.history.replaceState({}, '', '/')
+    } else if (params.get('google_error')) {
+      setStatusMsg({ type: 'error', text: `Google connection failed: ${params.get('google_error')}` })
+      window.history.replaceState({}, '', '/')
+    }
+  }, [])
+
   // Fetch Meetings & Google Connection status from Supabase
   const SHARED_OWNER_ID = '85f65368-252f-41c3-8831-be3b2c970ec2'
   const GOOGLE_OWNER_ID = 'a30a0728-cebc-443e-918a-d2454b5a6333'
