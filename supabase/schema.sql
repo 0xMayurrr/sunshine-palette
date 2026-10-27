@@ -1,9 +1,6 @@
 -- Enable UUID extension
 create extension if not exists "uuid-ossp";
 
--- Migration: add attendance column if not exists
-alter table public.meetings add column if not exists attendance text default null;
-
 -- 1. PROFILES TABLE
 create table if not exists public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,

@@ -79,6 +79,24 @@ export function calculateDuration(startTime: string, endTime: string): string {
   if (hours > 0) return `${hours}h`
   return `${mins}m`
 }
+
+export function getMeetingDurationMinutes(startTime: string, endTime: string): number {
+  if (!startTime || !endTime) return 0
+  const [startH = 0, startM = 0] = startTime.split(':').map(Number)
+  const [endH = 0, endM = 0] = endTime.split(':').map(Number)
+  const totalMinutes = (endH * 60 + endM) - (startH * 60 + startM)
+  return totalMinutes > 0 ? totalMinutes : 0
+}
+
+export function formatMinutes(totalMinutes: number): string {
+  if (totalMinutes <= 0) return '0m'
+  const hours = Math.floor(totalMinutes / 60)
+  const mins = totalMinutes % 60
+  if (hours > 0 && mins > 0) return `${hours}h ${mins}m`
+  if (hours > 0) return `${hours}h`
+  return `${mins}m`
+}
+
 export interface CategoryTheme {
   badge: string;
   accentBar: string;

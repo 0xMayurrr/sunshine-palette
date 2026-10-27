@@ -28,7 +28,7 @@ export async function registerPasskey(userId: string, email: string): Promise<{ 
         user: {
           id: new TextEncoder().encode(userId),
           name: email,
-          displayName: email.split('@')[0],
+          displayName: email.split('@')[0] || 'User',
         },
         pubKeyCredParams: [
           { alg: -7, type: 'public-key' },   // ES256

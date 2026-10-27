@@ -1,11 +1,12 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useEffect, useMemo, useState } from 'react'
 import { addDays, addMonths, addWeeks, eachDayOfInterval, endOfMonth, endOfWeek, format, isSameDay, isSameMonth, parseISO, startOfMonth, startOfWeek, subMonths, subWeeks } from 'date-fns'
-import { CalendarDays, ChevronLeft, ChevronRight, Clock3, Mail, Menu, Plus, Search, Settings2, X, LogOut, CheckCircle2, AlertCircle, RefreshCw, Pin, Bell, Video, User, ArrowRight, Sparkles, Fingerprint } from 'lucide-react'
+import { CalendarDays, ChevronLeft, ChevronRight, Clock3, Mail, Menu, Plus, Search, Settings2, X, LogOut, CheckCircle2, AlertCircle, RefreshCw, Pin, Bell, Video, User, ArrowRight, Sparkles, Fingerprint, BarChart3 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import { MeetingDialog } from '@/components/calendar/MeetingDialog'
-import { blankMeeting, calculateDuration, calculateReminderDisplay, categoryThemes, formatTime, Meeting, MeetingType, UserProfile } from '@/lib/calendar'
+import { TotalMeetingsSection } from '@/components/calendar/TotalMeetingsSection'
+import { blankMeeting, calculateDuration, calculateReminderDisplay, categoryThemes, formatTime, Meeting, MeetingType, Reminder, UserProfile } from '@/lib/calendar'
 import { useAuth } from '@/lib/auth-context'
 import { supabase } from '@/lib/supabase'
 import { createMeetingFn, deleteMeetingFn, disconnectGoogleFn, getGoogleConnectUrlFn, runReminderSchedulerFn, saveDefaultReminderEmailsFn, updateMeetingFn } from '@/lib/server-actions'
@@ -42,7 +43,7 @@ export const Route = createFileRoute('/')({
 })
 
 type View = 'Month' | 'Week' | 'Day'
-type Section = 'Calendar' | 'Upcoming' | 'Settings'
+type Section = 'Calendar' | 'Upcoming' | 'Total Meetings' | 'Settings'
 const views: View[] = ['Month', 'Week', 'Day']
 const eventColors: Record<MeetingType, string> = { 'Client Meeting': 'bg-client', 'Internal Meeting': 'bg-internal', 'Follow-up': 'bg-followup', Important: 'bg-important', Other: 'bg-other' }
 const eventBorders: Record<MeetingType, string> = { 'Client Meeting': 'border-client', 'Internal Meeting': 'border-internal', 'Follow-up': 'border-followup', Important: 'border-important', Other: 'border-other' }
@@ -210,10 +211,10 @@ function CalendarApp() {
       ])
 
       // Map reminder types by meeting ID
-      const remindersByMeeting: Record<string, string[]> = {}
+      const remindersByMeeting: Record<string, Reminder[]> = {}
       for (const r of remindersRes.data || []) {
         if (!remindersByMeeting[r.meeting_id]) remindersByMeeting[r.meeting_id] = []
-        remindersByMeeting[r.meeting_id].push(r.reminder_type)
+        remindersByMeeting[r.meeting_id]?.push(r.reminder_type as Reminder)
       }
 
       // 1. Process Meetings
@@ -233,7 +234,7 @@ function CalendarApp() {
           meetingLink: m.meeting_link || '',
           google_event_id: m.google_event_id,
           google_meet_link: m.google_meet_link,
-          reminders: remindersByMeeting[m.id] && remindersByMeeting[m.id].length ? remindersByMeeting[m.id] : ['1 hour before'],
+          reminders: remindersByMeeting[m.id]?.length ? remindersByMeeting[m.id]! : ['1 hour before'],
           reminderEmails: m.reminder_emails || [],
           status: m.status || 'scheduled',
           attendance: m.attendance || null,
@@ -283,6 +284,7 @@ function CalendarApp() {
 
   const filtered = useMemo(() => meetings.filter(m => `${m.title} ${m.client} ${m.type}`.toLowerCase().includes(search.toLowerCase())).sort((a,b) => `${a.date}${a.startTime}`.localeCompare(`${b.date}${b.startTime}`)), [meetings, search])
   const upcoming = filtered.filter(m => `${m.date}T${m.endTime}` >= format(today, "yyyy-MM-dd'T'HH:mm"))
+  const past = filtered.filter(m => `${m.date}T${m.endTime}` < format(today, "yyyy-MM-dd'T'HH:mm")).reverse()
   const todaysCount = meetings.filter(m => m.date === format(today, 'yyyy-MM-dd')).length
   const weekStart = startOfWeek(today, { weekStartsOn: 1 })
   const weekEnd = endOfWeek(today, { weekStartsOn: 1 })
@@ -369,86 +371,8 @@ function CalendarApp() {
       }
       setActive(null)
     } catch (err: any) {
-      console.error('Server action save meeting failed, trying direct Supabase fallback:', err)
-      // Client-side fallback to save meeting directly via Supabase client if server action fetch failed
-      try {
-        if (meeting.id && !meeting.id.startsWith('sample-')) {
-          const { data: dbUpdated, error: updateErr } = await supabase
-            .from('meetings')
-            .update({
-              title: meeting.title,
-              client_name: meeting.client || '',
-              description: meeting.description || '',
-              date: meeting.date,
-              start_time: meeting.startTime,
-              end_time: meeting.endTime,
-              meeting_type: meeting.type,
-              color: meeting.color || meeting.type,
-              meeting_link: meeting.meetingLink || '',
-              reminder_emails: meeting.reminderEmails || [],
-              updated_at: new Date().toISOString(),
-            })
-            .eq('id', meeting.id)
-            .eq('user_id', SHARED_OWNER_ID)
-            .select()
-            .maybeSingle()
-
-          if (!updateErr && dbUpdated) {
-            setMeetings(prev => prev.map(m => m.id === meeting.id ? { ...m, ...dbUpdated, client: dbUpdated.client_name, startTime: dbUpdated.start_time, endTime: dbUpdated.end_time, type: dbUpdated.meeting_type } : m))
-            setStatusMsg({ type: 'success', text: '✓ Meeting updated successfully.' })
-            setActive(null)
-            return
-          }
-        } else {
-          const { data: dbInserted, error: insertErr } = await supabase
-            .from('meetings')
-            .insert({
-              user_id: SHARED_OWNER_ID,
-              title: meeting.title,
-              client_name: meeting.client || '',
-              description: meeting.description || '',
-              date: meeting.date,
-              start_time: meeting.startTime,
-              end_time: meeting.endTime,
-              meeting_type: meeting.type,
-              color: meeting.color || meeting.type,
-              meeting_link: meeting.meetingLink || '',
-              reminder_emails: meeting.reminderEmails || [],
-              status: 'scheduled',
-            })
-            .select()
-            .maybeSingle()
-
-          if (!insertErr && dbInserted) {
-            const newMeetingObj: Meeting = {
-              id: dbInserted.id,
-              title: dbInserted.title,
-              client: dbInserted.client_name || '',
-              date: dbInserted.date,
-              startTime: dbInserted.start_time,
-              endTime: dbInserted.end_time,
-              type: dbInserted.meeting_type as MeetingType,
-              color: (dbInserted.color || dbInserted.meeting_type) as MeetingType,
-              description: dbInserted.description || '',
-              meetingLink: dbInserted.meeting_link || '',
-              google_event_id: dbInserted.google_event_id,
-              google_meet_link: dbInserted.google_meet_link,
-              reminders: meeting.reminders || ['1 day before', '1 hour before'],
-              reminderEmails: dbInserted.reminder_emails || [],
-              status: 'scheduled',
-            }
-            setMeetings(prev => [...prev, newMeetingObj])
-            setSelectedDate(parseISO(newMeetingObj.date))
-            setCursor(parseISO(newMeetingObj.date))
-            setStatusMsg({ type: 'success', text: '✓ Meeting created successfully!' })
-            setActive(null)
-            return
-          }
-        }
-      } catch (fbErr) {
-        console.error('Direct fallback error:', fbErr)
-      }
-      setStatusMsg({ type: 'error', text: err.message || 'Failed to save meeting.' })
+      console.error('Save meeting failed:', err)
+      setStatusMsg({ type: 'error', text: `Failed to save meeting: ${err.message || 'Please try again.'}` })
     }
   }
 
@@ -468,7 +392,7 @@ function CalendarApp() {
           data: {
             userId: SHARED_OWNER_ID,
             meetingId: id,
-            googleEventId: target?.google_event_id,
+            ...(target?.google_event_id ? { googleEventId: target.google_event_id } : {}),
           }
         })
       }
@@ -609,8 +533,8 @@ function CalendarApp() {
           </div>
         )}
         <nav className="space-y-1">
-          {(['Calendar', 'Upcoming', 'Settings'] as const).map((name) => {
-            const Icon = name === 'Calendar' ? CalendarDays : name === 'Upcoming' ? Clock3 : Settings2
+          {(['Calendar', 'Upcoming', 'Total Meetings', 'Settings'] as const).map((name) => {
+            const Icon = name === 'Calendar' ? CalendarDays : name === 'Upcoming' ? Clock3 : name === 'Total Meetings' ? BarChart3 : Settings2
             const isSelected = section === name
             return (
               <Button
@@ -704,7 +628,7 @@ function CalendarApp() {
             className="flex size-8 items-center justify-center rounded-lg bg-primary/15 font-display text-xs font-bold text-primary hover:bg-primary/25 hover:scale-105 transition-all cursor-pointer sm:size-9 shadow-xs"
             title="Open Settings"
           >
-            {profile?.name ? profile.name[0].toUpperCase() : 'M'}
+            {profile?.name?.[0]?.toUpperCase() || 'M'}
           </button>
         </div>
       </header>
@@ -733,7 +657,7 @@ function CalendarApp() {
               <div className="flex flex-wrap items-center justify-between gap-4">
                 <div className="flex items-center gap-4">
                   <div className="flex size-14 shrink-0 items-center justify-center rounded-2xl bg-primary/10 border border-primary/20 font-display text-xl font-black text-primary shadow-xs">
-                    {profile?.name ? profile.name[0].toUpperCase() : 'M'}
+                    {profile?.name?.[0]?.toUpperCase() || 'M'}
                   </div>
                   <div>
                     <div className="flex items-center gap-2">
@@ -915,6 +839,12 @@ function CalendarApp() {
             </div>
           </div>
         </main>
+      ) : section === 'Total Meetings' ? (
+        <TotalMeetingsSection
+          meetings={meetings}
+          onOpen={open}
+          onCreate={() => create()}
+        />
       ) : (
         <main className="mx-auto max-w-[1700px]">
           <div className="border-b border-border px-5 pb-6 pt-7 sm:px-8 lg:px-10 lg:pt-10">
@@ -941,6 +871,15 @@ function CalendarApp() {
                 <span className="text-xs font-semibold text-muted-foreground">{upcoming.length} meetings</span>
               </div>
               <UpcomingList meetings={upcoming} onOpen={open} long search={search} />
+              {past.length > 0 && (
+                <div className="mt-12">
+                  <div className="mb-5 flex items-baseline justify-between border-b border-border pb-4">
+                    <h2 className="font-display text-xl font-bold text-muted-foreground">Past meetings</h2>
+                    <span className="text-xs font-semibold text-muted-foreground">{past.length} meetings</span>
+                  </div>
+                  <UpcomingList meetings={past} onOpen={open} long search={search} />
+                </div>
+              )}
             </div>
           ) : (
             <div className="grid xl:grid-cols-[minmax(0,1fr)_270px]">
@@ -1010,16 +949,37 @@ function CalendarApp() {
                   <UpcomingList meetings={upcoming.slice(0, 6)} onOpen={open} search={search} />
                 </div>
                 <div className="mt-8 border-t border-border pt-6">
-                  <p className="text-[10px] font-bold uppercase text-muted-foreground">At a glance</p>
-                  <div className="mt-4 grid grid-cols-3 gap-2 xl:grid-cols-1 xl:gap-0">
+                  <div className="flex items-center justify-between">
+                    <p className="text-[10px] font-bold uppercase text-muted-foreground">At a glance</p>
+                    <button
+                      type="button"
+                      onClick={() => selectSection('Total Meetings')}
+                      className="text-[10px] font-bold text-primary hover:underline flex items-center gap-0.5"
+                    >
+                      Insights <ChevronRight className="size-2.5" />
+                    </button>
+                  </div>
+                  <div className="mt-4 grid grid-cols-2 gap-2 xl:grid-cols-1 xl:gap-0">
                     {[
                       ['Today', todaysCount],
                       ['This week', weekCount],
                       ['Upcoming', upcoming.length],
+                      ['Total placed', meetings.length],
                     ].map(([label, count]) => (
-                      <div key={label as string} className="flex flex-col border-l-2 border-border pl-3 xl:flex-row xl:items-center xl:justify-between xl:border-l-0 xl:border-b xl:pl-0 xl:py-3">
-                        <span className="text-[10px] font-semibold uppercase text-muted-foreground">{label}</span>
-                        <span className="font-display text-xl font-bold xl:text-base">{count}</span>
+                      <div
+                        key={label as string}
+                        onClick={label === 'Total placed' ? () => selectSection('Total Meetings') : undefined}
+                        className={`flex flex-col border-l-2 border-border pl-3 xl:flex-row xl:items-center xl:justify-between xl:border-l-0 xl:border-b xl:pl-0 xl:py-3 ${
+                          label === 'Total placed' ? 'cursor-pointer group hover:bg-secondary/50 rounded-sm px-1.5 -mx-1.5 transition-colors' : ''
+                        }`}
+                      >
+                        <span className={`text-[10px] font-semibold uppercase text-muted-foreground ${label === 'Total placed' ? 'group-hover:text-primary font-bold' : ''}`}>
+                          {label}
+                        </span>
+                        <span className={`font-display text-xl font-bold xl:text-base ${label === 'Total placed' ? 'text-primary flex items-center gap-1' : ''}`}>
+                          {count}
+                          {label === 'Total placed' && <ChevronRight className="size-3.5 inline-block opacity-70 group-hover:opacity-100 group-hover:translate-x-0.5 transition-transform" />}
+                        </span>
                       </div>
                     ))}
                   </div>
