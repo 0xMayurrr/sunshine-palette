@@ -178,7 +178,7 @@ function CalendarApp() {
   }, [])
 
   // Fetch Meetings & Google Connection status from Supabase
-  const SHARED_OWNER_ID = '85f65368-252f-41c3-8831-be3b2c970ec2'
+  const SHARED_OWNER_ID = 'dcf1bb3b-bac8-4cde-8a75-d1ed4d9f1c75'
   const GOOGLE_OWNER_ID = 'a30a0728-cebc-443e-918a-d2454b5a6333'
 
   const loadSupabaseData = async () => {
@@ -297,7 +297,7 @@ function CalendarApp() {
 
   const handleSave = async (meeting: Meeting) => {
     if (!user) return
-    const SHARED_OWNER_ID = '85f65368-252f-41c3-8831-be3b2c970ec2'
+    const SHARED_OWNER_ID = 'dcf1bb3b-bac8-4cde-8a75-d1ed4d9f1c75'
     setStatusMsg(null)
     try {
       if (meeting.id && !meeting.id.startsWith('sample-')) {
@@ -384,7 +384,7 @@ function CalendarApp() {
 
   const handleDelete = async (id: string) => {
     if (!user) return
-    const SHARED_OWNER_ID = '85f65368-252f-41c3-8831-be3b2c970ec2'
+    const SHARED_OWNER_ID = 'dcf1bb3b-bac8-4cde-8a75-d1ed4d9f1c75'
     const target = meetings.find(m => m.id === id)
     try {
       if (id && !id.startsWith('sample-')) {
@@ -414,7 +414,7 @@ function CalendarApp() {
     if (!user) return
     setSavingEmails(true)
     try {
-      await saveDefaultReminderEmailsFn({ data: { userId: '85f65368-252f-41c3-8831-be3b2c970ec2', emails: updated } })
+      await saveDefaultReminderEmailsFn({ data: { userId: 'dcf1bb3b-bac8-4cde-8a75-d1ed4d9f1c75', emails: updated } })
       setStatusMsg({ type: 'success', text: 'Default reminder emails saved.' })
     } catch {
       setStatusMsg({ type: 'error', text: 'Failed to save.' })
