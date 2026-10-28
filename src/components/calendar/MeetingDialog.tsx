@@ -130,7 +130,7 @@ export function MeetingDialog({ meeting, mode, isGoogleConnected, userId, onClos
     try {
       const res = await createGoogleMeetLinkFn({
         data: {
-          userId,
+          userId: 'a30a0728-cebc-443e-918a-d2454b5a6333',
           title: draft.title || 'Buildicy Meeting',
           date: draft.date,
           startTime: draft.startTime,
