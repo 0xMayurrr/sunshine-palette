@@ -409,6 +409,10 @@ function CalendarApp() {
   const handleAddDefaultEmail = async () => {
     const email = newDefaultEmail.trim()
     if (!email || !email.includes('@') || defaultReminderEmails.includes(email)) return
+    if (email.toLowerCase().endsWith('@buildicy.com')) {
+      setStatusMsg({ type: 'error', text: 'buildicy.com does not have a mailbox configured. Please use a working email (e.g. your Gmail).' })
+      return
+    }
     const updated = [...defaultReminderEmails, email]
     setDefaultReminderEmails(updated)
     setNewDefaultEmail('')
@@ -447,9 +451,14 @@ function CalendarApp() {
   }
 
   const handleSendTestEmail = async () => {
-    const targetEmail = defaultReminderEmails[0] || user?.email
+    const isDeliverable = (e?: string | null) =>
+      Boolean(e && e.includes('@') && !e.toLowerCase().endsWith('@buildicy.com'))
+    const targetEmail =
+      defaultReminderEmails.find(isDeliverable) ||
+      (isDeliverable(user?.email) ? user?.email : 'mayurkarthick2006@gmail.com')
+
     if (!targetEmail) {
-      setStatusMsg({ type: 'error', text: 'No recipient email configured. Please add an email below first.' })
+      setStatusMsg({ type: 'error', text: 'No valid recipient email configured. Please add your Gmail below first.' })
       return
     }
 

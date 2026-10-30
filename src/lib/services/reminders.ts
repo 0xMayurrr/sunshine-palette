@@ -120,9 +120,9 @@ export async function processDueReminders(): Promise<{ processed: number; sent: 
   const userIds = [...new Set(dueReminders.map((r: any) => r.user_id))]
   const { data: profileRows } = await supabase
     .from('profiles')
-    .select('user_id, email, name')
+    .select('user_id, email, name, default_reminder_emails')
     .in('user_id', userIds)
-  const profileMap: Record<string, { email: string; name: string }> = {}
+  const profileMap: Record<string, { email: string; name: string; default_reminder_emails?: string[] }> = {}
   for (const p of profileRows || []) {
     profileMap[p.user_id] = p
   }
@@ -152,7 +152,6 @@ export async function processDueReminders(): Promise<{ processed: number; sent: 
       continue
     }
 
-    const recipientEmail = profile?.email || ''
     const recipientName = profile?.name || 'Founder'
 
     // Build email payload once
@@ -171,15 +170,34 @@ export async function processDueReminders(): Promise<{ processed: number; sent: 
       meetingId: meeting.id,
     }
 
-    // Build recipient list: reminder_emails first, then profile email as fallback
-    // Never fall back to auth login email (e.g. founder@buildicy.com) — it has no real mailbox
-    const extraEmails: string[] = reminder.reminder_emails || []
-    const allRecipients = extraEmails.length > 0
-      ? [...new Set(extraEmails.filter(Boolean))]
-      : recipientEmail ? [recipientEmail] : []
+    // Helper: only accept real, deliverable emails; strictly block buildicy.com which lacks MX mail records
+    const isDeliverable = (email: string) =>
+      Boolean(email && email.includes('@') && !email.toLowerCase().endsWith('@buildicy.com'))
+
+    // Build recipient list:
+    // 1. Meeting reminder_emails (filtered)
+    // 2. Profile default_reminder_emails (filtered)
+    // 3. Profile email (only if not @buildicy.com)
+    // 4. Fallback to admin GMAIL_USER (mayurbuildicy@gmail.com)
+    const extraEmails: string[] = (reminder.reminder_emails || []).filter(isDeliverable)
+    const defaultEmails: string[] = (profile?.default_reminder_emails || []).filter(isDeliverable)
+    const profileEmail = isDeliverable(profile?.email || '') ? [profile!.email] : []
+    const fallbackUser = process.env['GMAIL_USER'] && isDeliverable(process.env['GMAIL_USER'])
+      ? [process.env['GMAIL_USER']]
+      : []
+
+    const candidateRecipients = extraEmails.length > 0
+      ? extraEmails
+      : defaultEmails.length > 0
+      ? defaultEmails
+      : profileEmail.length > 0
+      ? profileEmail
+      : fallbackUser
+
+    const allRecipients = [...new Set(candidateRecipients)]
 
     if (!allRecipients.length) {
-      console.warn(`[Reminder Scheduler] No valid recipient email for reminder ${reminder.id}`)
+      console.warn(`[Reminder Scheduler] No valid deliverable recipient email for reminder ${reminder.id}`)
       await supabase.from('reminders').update({ status: 'failed' }).eq('id', reminder.id)
       failedCount++
       continue

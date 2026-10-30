@@ -115,6 +115,10 @@ export function MeetingDialog({ meeting, mode, isGoogleConnected, userId, onClos
   const addReminderEmail = () => {
     const email = newReminderEmail.trim()
     if (!email || !email.includes('@')) return
+    if (email.toLowerCase().endsWith('@buildicy.com')) {
+      alert('buildicy.com does not have an active email inbox. Please use a working email address (e.g. your Gmail).')
+      return
+    }
     const current = draft.reminderEmails || []
     if (!current.includes(email)) update('reminderEmails', [...current, email])
     setNewReminderEmail('')
