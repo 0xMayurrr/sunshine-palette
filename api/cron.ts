@@ -48,55 +48,162 @@ async function sendEmail(toEmail: string, payload: any) {
   const timingNotice = formatMinutesLabel(payload.minutesBefore)
   const timeWindow = `${payload.startTime} – ${payload.endTime}`
 
+  const rsvpBlock = payload.meetingId ? `
+        <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background:#F9FAFB;border:1px solid #E4E4E7;border-radius:10px;">
+          <tr><td style="padding:20px 24px;">
+            <p style="margin:0 0 14px;font-family:'Space Grotesk',sans-serif;font-size:12px;font-weight:700;color:#3F3F46;text-transform:uppercase;letter-spacing:1px;text-align:center;">Will you attend this meeting?</p>
+            <table width="100%" border="0" cellspacing="0" cellpadding="0"><tr>
+              <td style="padding-right:8px;" align="right" width="50%">
+                <a href="https://calendar.buildicy.com/api/rsvp?meetingId=${escapeHtml(payload.meetingId)}&attendance=attending" target="_blank" style="display:inline-block;background:linear-gradient(135deg,#16A34A,#15803D);color:#FFFFFF;font-family:'Space Grotesk',sans-serif;font-size:13px;font-weight:700;text-decoration:none;padding:12px 24px;border-radius:8px;letter-spacing:0.3px;">Yes, Attending</a>
+              </td>
+              <td style="padding-left:8px;" align="left" width="50%">
+                <a href="https://calendar.buildicy.com/api/rsvp?meetingId=${escapeHtml(payload.meetingId)}&attendance=not_attending" target="_blank" style="display:inline-block;background:#FFFFFF;color:#DC2626;font-family:'Space Grotesk',sans-serif;font-size:13px;font-weight:700;text-decoration:none;padding:12px 24px;border-radius:8px;border:1.5px solid #FCA5A5;">Can't Make It</a>
+              </td>
+            </tr></table>
+          </td></tr>
+        </table>` : ''
+
   const html = `<!DOCTYPE html>
 <html lang="en">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>Meeting Reminder</title></head>
-<body style="margin:0;padding:0;background-color:#F4F4F5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;">
-<table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color:#F4F4F5;padding:40px 16px;">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Meeting Reminder</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700;800&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  @keyframes fadeSlideIn {
+    from { opacity: 0; transform: translateY(18px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes pulseGlow {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(124,58,237,0.18); }
+    50%       { box-shadow: 0 0 0 8px rgba(124,58,237,0); }
+  }
+  @keyframes shimmer {
+    0%   { background-position: -400px 0; }
+    100% { background-position: 400px 0; }
+  }
+  @keyframes badgePop {
+    0%   { transform: scale(0.7); opacity: 0; }
+    70%  { transform: scale(1.08); }
+    100% { transform: scale(1); opacity: 1; }
+  }
+  .card        { animation: fadeSlideIn 0.55s cubic-bezier(.22,.68,0,1.2) both; }
+  .cta-btn     { animation: pulseGlow 2.4s ease-in-out infinite; }
+  .badge-pill  { animation: badgePop 0.5s cubic-bezier(.22,.68,0,1.2) 0.3s both; }
+  .shimmer-bar {
+    background: linear-gradient(90deg,#7C3AED 0%,#A855F7 40%,#6D28D9 60%,#7C3AED 100%);
+    background-size: 800px 4px;
+    animation: shimmer 2.2s linear infinite;
+  }
+</style>
+</head>
+<body style="margin:0;padding:0;background-color:#F0EDFB;font-family:'DM Sans',system-ui,sans-serif;">
+
+<table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color:#F0EDFB;padding:48px 16px 40px;">
 <tr><td align="center">
-<table width="100%" border="0" cellspacing="0" cellpadding="0" style="max-width:560px;">
-  <tr><td style="padding-bottom:20px;">
+<table width="100%" border="0" cellspacing="0" cellpadding="0" style="max-width:580px;">
+
+  <!-- Logo row -->
+  <tr><td style="padding-bottom:24px;">
     <table width="100%" border="0" cellspacing="0" cellpadding="0"><tr>
-      <td><span style="font-size:15px;font-weight:800;letter-spacing:1px;color:#18181B;">BUILDICY<span style="color:#7C3AED;">CALENDAR</span></span></td>
-      <td align="right"><span style="font-size:10px;font-weight:700;color:#7C3AED;background-color:#EDE9FE;padding:4px 10px;border-radius:20px;text-transform:uppercase;letter-spacing:0.5px;">Meeting Reminder</span></td>
+      <td>
+        <span style="font-family:'Space Grotesk',sans-serif;font-size:16px;font-weight:800;letter-spacing:2px;color:#18181B;">BUILDICY</span><span style="font-family:'Space Grotesk',sans-serif;font-size:16px;font-weight:800;letter-spacing:2px;color:#7C3AED;">CALENDAR</span>
+      </td>
+      <td align="right">
+        <span class="badge-pill" style="display:inline-block;font-family:'DM Sans',sans-serif;font-size:10px;font-weight:700;color:#7C3AED;background:linear-gradient(135deg,#EDE9FE,#DDD6FE);padding:5px 14px;border-radius:20px;text-transform:uppercase;letter-spacing:1.2px;border:1px solid #C4B5FD;">Meeting Reminder</span>
+      </td>
     </tr></table>
   </td></tr>
-  <tr><td style="background-color:#FFFFFF;border-radius:12px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,0.08);">
+
+  <!-- Main card -->
+  <tr><td class="card" style="background:#FFFFFF;border-radius:16px;overflow:hidden;box-shadow:0 4px 32px rgba(124,58,237,0.10),0 1px 4px rgba(0,0,0,0.06);">
     <table width="100%" border="0" cellspacing="0" cellpadding="0">
-      <tr><td style="background-color:#7C3AED;padding:4px 0;"></td></tr>
-      <tr><td style="padding:36px 36px 28px;">
-        <p style="margin:0 0 6px;font-size:12px;font-weight:700;color:#7C3AED;text-transform:uppercase;letter-spacing:1px;">Starting in ${timingNotice}</p>
-        <h1 style="margin:0 0 24px;font-size:24px;font-weight:800;color:#09090B;line-height:1.3;">${escapeHtml(payload.meetingTitle)}</h1>
-        <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color:#FAFAFA;border:1px solid #E4E4E7;border-radius:8px;margin-bottom:24px;">
+
+      <!-- Animated shimmer top bar -->
+      <tr><td class="shimmer-bar" style="height:4px;"></td></tr>
+
+      <!-- Hero section -->
+      <tr><td style="background:linear-gradient(135deg,#1E1B4B 0%,#312E81 50%,#4C1D95 100%);padding:36px 40px 32px;">
+        <p style="margin:0 0 10px;font-family:'DM Sans',sans-serif;font-size:11px;font-weight:700;color:#A78BFA;text-transform:uppercase;letter-spacing:2px;">Starting in</p>
+        <p style="margin:0 0 16px;font-family:'Space Grotesk',sans-serif;font-size:38px;font-weight:800;color:#FFFFFF;line-height:1;letter-spacing:-1px;">${timingNotice}</p>
+        <div style="width:40px;height:3px;background:linear-gradient(90deg,#A78BFA,#7C3AED);border-radius:2px;margin-bottom:20px;"></div>
+        <h1 style="margin:0;font-family:'Space Grotesk',sans-serif;font-size:22px;font-weight:700;color:#EDE9FE;line-height:1.35;">${escapeHtml(payload.meetingTitle)}</h1>
+      </td></tr>
+
+      <!-- Details grid -->
+      <tr><td style="padding:32px 40px 24px;">
+
+        <!-- Highlighted time block -->
+        <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background:linear-gradient(135deg,#F5F3FF,#EDE9FE);border:1.5px solid #C4B5FD;border-radius:12px;margin-bottom:20px;">
           <tr><td style="padding:20px 24px;">
             <table width="100%" border="0" cellspacing="0" cellpadding="0">
               <tr>
-                <td style="padding-bottom:12px;font-size:12px;color:#71717A;font-weight:600;">📅 &nbsp;Date</td>
-                <td style="padding-bottom:12px;font-size:13px;color:#18181B;font-weight:700;" align="right">${escapeHtml(payload.meetingDate)}</td>
-              </tr>
-              <tr>
-                <td style="padding-bottom:12px;font-size:12px;color:#71717A;font-weight:600;">🕐 &nbsp;Time</td>
-                <td style="padding-bottom:12px;font-size:13px;color:#18181B;font-weight:700;" align="right">${escapeHtml(timeWindow)} IST</td>
-              </tr>
-              ${payload.clientName ? `<tr>
-                <td style="padding-bottom:12px;font-size:12px;color:#71717A;font-weight:600;">👤 &nbsp;Client</td>
-                <td style="padding-bottom:12px;font-size:13px;color:#18181B;font-weight:700;" align="right">${escapeHtml(payload.clientName)}</td>
-              </tr>` : ''}
-              <tr>
-                <td style="font-size:12px;color:#71717A;font-weight:600;">🏷️ &nbsp;Type</td>
-                <td style="font-size:13px;color:#7C3AED;font-weight:700;" align="right">${escapeHtml(payload.meetingType)}</td>
+                <td style="width:50%;padding-right:12px;">
+                  <p style="margin:0 0 4px;font-size:10px;font-weight:700;color:#7C3AED;text-transform:uppercase;letter-spacing:1.2px;">Date</p>
+                  <p style="margin:0;font-family:'Space Grotesk',sans-serif;font-size:15px;font-weight:700;color:#1E1B4B;">${escapeHtml(payload.meetingDate)}</p>
+                </td>
+                <td style="width:50%;padding-left:12px;border-left:1.5px solid #C4B5FD;">
+                  <p style="margin:0 0 4px;font-size:10px;font-weight:700;color:#7C3AED;text-transform:uppercase;letter-spacing:1.2px;">Time (IST)</p>
+                  <p style="margin:0;font-family:'Space Grotesk',sans-serif;font-size:15px;font-weight:700;color:#1E1B4B;">${escapeHtml(timeWindow)}</p>
+                </td>
               </tr>
             </table>
           </td></tr>
         </table>
-        ${payload.description ? `<p style="margin:0 0 6px;font-size:11px;font-weight:700;color:#71717A;text-transform:uppercase;letter-spacing:0.5px;">Agenda</p><p style="margin:0 0 24px;font-size:14px;color:#3F3F46;line-height:1.6;background:#FAFAFA;border-left:3px solid #7C3AED;padding:12px 16px;border-radius:0 6px 6px 0;">${escapeHtml(payload.description)}</p>` : ''}
-        ${joinLink ? `<table width="100%" border="0" cellspacing="0" cellpadding="0"><tr><td align="center" style="padding-top:8px;"><a href="${escapeHtml(joinLink)}" target="_blank" style="display:inline-block;background-color:#7C3AED;color:#FFFFFF;font-size:14px;font-weight:700;text-decoration:none;padding:14px 32px;border-radius:8px;letter-spacing:0.3px;">Join Google Meet →</a></td></tr></table>` : ''}
+
+        <!-- Other details -->
+        <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background:#FAFAFA;border:1px solid #E4E4E7;border-radius:10px;margin-bottom:20px;">
+          <tr><td style="padding:20px 24px;">
+            <table width="100%" border="0" cellspacing="0" cellpadding="0">
+              ${payload.clientName ? `
+              <tr>
+                <td style="padding-bottom:14px;font-size:11px;font-weight:600;color:#71717A;text-transform:uppercase;letter-spacing:0.8px;">Client</td>
+                <td style="padding-bottom:14px;" align="right"><span style="font-family:'Space Grotesk',sans-serif;font-size:13px;font-weight:700;color:#09090B;background:#F4F4F5;padding:3px 10px;border-radius:6px;">${escapeHtml(payload.clientName)}</span></td>
+              </tr>` : ''}
+              <tr>
+                <td style="font-size:11px;font-weight:600;color:#71717A;text-transform:uppercase;letter-spacing:0.8px;">Meeting Type</td>
+                <td align="right"><span style="font-family:'Space Grotesk',sans-serif;font-size:12px;font-weight:700;color:#7C3AED;background:#EDE9FE;padding:3px 12px;border-radius:20px;border:1px solid #C4B5FD;">${escapeHtml(payload.meetingType)}</span></td>
+              </tr>
+            </table>
+          </td></tr>
+        </table>
+
+        ${payload.description ? `
+        <table width="100%" border="0" cellspacing="0" cellpadding="0" style="margin-bottom:20px;">
+          <tr><td>
+            <p style="margin:0 0 8px;font-size:10px;font-weight:700;color:#71717A;text-transform:uppercase;letter-spacing:1.2px;">Agenda</p>
+            <div style="font-size:14px;color:#3F3F46;line-height:1.7;background:#FAFAFA;border-left:3px solid #7C3AED;padding:14px 18px;border-radius:0 8px 8px 0;font-family:'DM Sans',sans-serif;">${escapeHtml(payload.description)}</div>
+          </td></tr>
+        </table>` : ''}
+
+        ${joinLink ? `
+        <table width="100%" border="0" cellspacing="0" cellpadding="0" style="margin-bottom:20px;">
+          <tr><td align="center">
+            <a href="${escapeHtml(joinLink)}" target="_blank" class="cta-btn" style="display:inline-block;background:linear-gradient(135deg,#7C3AED,#6D28D9);color:#FFFFFF;font-family:'Space Grotesk',sans-serif;font-size:14px;font-weight:700;text-decoration:none;padding:15px 40px;border-radius:10px;letter-spacing:0.5px;">Join Google Meet &rarr;</a>
+          </td></tr>
+        </table>` : ''}
+
+        ${rsvpBlock}
+
       </td></tr>
-      <tr><td style="padding:16px 36px;border-top:1px solid #F4F4F5;text-align:center;">
-        <p style="margin:0;font-size:11px;color:#A1A1AA;">Buildicy Founder Workspace &bull; Asia/Kolkata (IST) &bull; This is an automated reminder</p>
+
+      <!-- Footer -->
+      <tr><td style="padding:20px 40px;background:#FAFAFA;border-top:1px solid #F0EDFB;">
+        <table width="100%" border="0" cellspacing="0" cellpadding="0"><tr>
+          <td>
+            <p style="margin:0;font-size:11px;color:#A1A1AA;font-family:'DM Sans',sans-serif;">Buildicy Founder Workspace &bull; Asia/Kolkata (IST)</p>
+            <p style="margin:4px 0 0;font-size:10px;color:#C4C4C4;font-family:'DM Sans',sans-serif;">This is an automated reminder. Do not reply to this email.</p>
+          </td>
+          <td align="right">
+            <span style="font-family:'Space Grotesk',sans-serif;font-size:11px;font-weight:800;letter-spacing:1.5px;color:#D4D4D8;">BUILDICY</span>
+          </td>
+        </tr></table>
       </td></tr>
+
     </table>
   </td></tr>
+
 </table>
 </td></tr></table>
 </body></html>`
@@ -105,7 +212,7 @@ async function sendEmail(toEmail: string, payload: any) {
     const info = await transporter.sendMail({
       from: `"Buildicy Calendar" <${fromEmail}>`,
       to: toEmail,
-      subject: `⏰ Reminder: ${payload.meetingTitle} starts in ${timingNotice}`,
+      subject: `Reminder: ${payload.meetingTitle} starts in ${timingNotice}`,
       html,
     })
     return { success: true, id: info.messageId }
@@ -172,19 +279,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
 
       const profile = profileMap[reminder.user_id]
-      let primaryEmail = profile?.email || ''
       const recipientName = profile?.name || 'Founder'
-
-      if (!primaryEmail) {
-        const { data: authUser } = await supabase.auth.admin.getUserById(reminder.user_id)
-        primaryEmail = authUser?.user?.email || ''
-      }
-
-      if (!primaryEmail) {
-        await supabase.from('reminders').update({ status: 'failed' }).eq('id', reminder.id)
-        failedCount++
-        continue
-      }
 
       const emailPayload = {
         userName: recipientName,
@@ -198,15 +293,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         googleMeetLink: meeting.google_meet_link,
         meetingLink: meeting.meeting_link,
         minutesBefore: reminder.minutes_before,
+        meetingId: meeting.id,
       }
 
-      const result = await sendEmail(primaryEmail, emailPayload)
-
+      // Use reminder_emails first; fall back to profile.email only — never use auth login email
       const extraEmails: string[] = reminder.reminder_emails || []
-      for (const extraEmail of extraEmails) {
-        if (extraEmail && extraEmail !== primaryEmail) {
-          await sendEmail(extraEmail, emailPayload)
-        }
+      const profileEmail = profile?.email || ''
+      const allRecipients = extraEmails.length > 0
+        ? [...new Set(extraEmails.filter(Boolean))]
+        : profileEmail ? [profileEmail] : []
+
+      if (!allRecipients.length) {
+        await supabase.from('reminders').update({ status: 'failed' }).eq('id', reminder.id)
+        failedCount++
+        continue
+      }
+
+      let result = { success: false, error: 'No recipients' } as { success: boolean; error?: string; id?: string }
+      for (const email of allRecipients) {
+        result = await sendEmail(email, emailPayload)
       }
 
       if (result.success) {

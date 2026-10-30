@@ -171,31 +171,26 @@ export async function processDueReminders(): Promise<{ processed: number; sent: 
       meetingId: meeting.id,
     }
 
-    // Resolve primary email — fallback to auth.users if profile.email is empty
-    let primaryEmail = recipientEmail
-    if (!primaryEmail) {
-      const { data: authUser } = await supabase.auth.admin.getUserById(reminder.user_id)
-      primaryEmail = authUser?.user?.email || ''
-    }
+    // Build recipient list: reminder_emails first, then profile email as fallback
+    // Never fall back to auth login email (e.g. founder@buildicy.com) — it has no real mailbox
+    const extraEmails: string[] = reminder.reminder_emails || []
+    const allRecipients = extraEmails.length > 0
+      ? [...new Set(extraEmails.filter(Boolean))]
+      : recipientEmail ? [recipientEmail] : []
 
-    if (!primaryEmail) {
-      console.warn(`[Reminder Scheduler] Missing recipient email for reminder ${reminder.id}`)
+    if (!allRecipients.length) {
+      console.warn(`[Reminder Scheduler] No valid recipient email for reminder ${reminder.id}`)
       await supabase.from('reminders').update({ status: 'failed' }).eq('id', reminder.id)
       failedCount++
       continue
     }
 
-    // Send to primary email
-    const result = await sendMeetingReminderEmail({ toEmail: primaryEmail, ...emailPayload })
-
-    // Send to all extra reminder_emails
-    const extraEmails: string[] = reminder.reminder_emails || []
-    for (const extraEmail of extraEmails) {
-      if (extraEmail && extraEmail !== primaryEmail) {
-        const extraResult = await sendMeetingReminderEmail({ toEmail: extraEmail, ...emailPayload })
-        if (!extraResult.success) {
-          console.warn(`[Reminder] Failed to send to extra email ${extraEmail}:`, extraResult.error)
-        }
+    // Send to all recipients, use first result to determine status
+    let result = { success: false, error: 'No recipients' }
+    for (const email of allRecipients) {
+      result = await sendMeetingReminderEmail({ toEmail: email, ...emailPayload })
+      if (!result.success) {
+        console.warn(`[Reminder] Failed to send to ${email}:`, result.error)
       }
     }
 
