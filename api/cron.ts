@@ -239,6 +239,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
+    if (req.query['test'] === 'true') {
+      const testTo = (req.query['to'] as string) || 'mayurkarthick2006@gmail.com'
+      const testResult = await sendEmail(testTo, {
+        userName: 'Founder',
+        meetingTitle: 'Test Reminder (Buildicy)',
+        clientName: 'Buildicy Team',
+        meetingDate: new Date().toISOString().split('T')[0],
+        startTime: '10:00',
+        endTime: '11:00',
+        meetingType: 'Client Meeting',
+        description: 'This is a test notification confirming that Buildicy automated email reminders via Gmail SMTP are working perfectly.',
+        googleMeetLink: 'https://meet.google.com',
+        minutesBefore: 15,
+        meetingId: 'test-meeting-id',
+      })
+      return res.status(200).json({ success: testResult.success, test: true, to: testTo, error: testResult.error })
+    }
+
     const nowIso = new Date().toISOString()
 
     const { data: dueReminders, error } = await supabase

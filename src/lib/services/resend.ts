@@ -44,8 +44,8 @@ export async function sendMeetingReminderEmail(payload: ReminderEmailPayload): P
   const fromEmail = process.env['GMAIL_USER'] || 'mayurbuildicy@gmail.com'
 
   if (!transporter) {
-    console.warn('[Gmail] GMAIL_USER or GMAIL_APP_PASSWORD not configured. Skipping email.', payload)
-    return { success: true, id: 'mock-email-id' }
+    console.warn('[Gmail] GMAIL_USER or GMAIL_APP_PASSWORD not configured. Cannot send email.', payload)
+    return { success: false, error: 'Gmail SMTP credentials (GMAIL_USER or GMAIL_APP_PASSWORD) not configured.' }
   }
 
   const joinLink = payload.googleMeetLink || payload.meetingLink || ''

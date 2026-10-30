@@ -11,5 +11,7 @@ jobs:
     steps:
       - name: Trigger reminder cron
         run: |
+          SECRET="${{ secrets.CRON_SECRET }}"
+          [ -z "$SECRET" ] && SECRET="reminders@buildicy.com"
           curl -s -o /dev/null -w "%{http_code}" \
-            "https://calendar.buildicy.com/api/cron/reminders?secret=${{ secrets.CRON_SECRET }}"
+            "https://calendar.buildicy.com/api/cron?secret=$SECRET"

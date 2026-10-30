@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useEffect, useMemo, useState } from 'react'
 import { addDays, addMonths, addWeeks, eachDayOfInterval, endOfMonth, endOfWeek, format, isSameDay, isSameMonth, parseISO, startOfMonth, startOfWeek, subMonths, subWeeks } from 'date-fns'
-import { CalendarDays, ChevronLeft, ChevronRight, Clock3, Mail, Menu, Plus, Search, Settings2, X, LogOut, CheckCircle2, AlertCircle, RefreshCw, Pin, Bell, Video, User, ArrowRight, Sparkles, Fingerprint, BarChart3 } from 'lucide-react'
+import { CalendarDays, ChevronLeft, ChevronRight, Clock3, Mail, Menu, Plus, Search, Settings2, X, LogOut, CheckCircle2, AlertCircle, RefreshCw, Pin, Bell, Video, User, ArrowRight, Sparkles, Fingerprint, BarChart3, Send } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import { MeetingDialog } from '@/components/calendar/MeetingDialog'
@@ -9,7 +9,7 @@ import { TotalMeetingsSection } from '@/components/calendar/TotalMeetingsSection
 import { blankMeeting, calculateDuration, calculateReminderDisplay, categoryThemes, formatTime, Meeting, MeetingType, Reminder, UserProfile } from '@/lib/calendar'
 import { useAuth } from '@/lib/auth-context'
 import { supabase } from '@/lib/supabase'
-import { createMeetingFn, deleteMeetingFn, disconnectGoogleFn, getGoogleConnectUrlFn, runReminderSchedulerFn, saveDefaultReminderEmailsFn, updateMeetingFn } from '@/lib/server-actions'
+import { createMeetingFn, deleteMeetingFn, disconnectGoogleFn, getGoogleConnectUrlFn, runReminderSchedulerFn, saveDefaultReminderEmailsFn, sendTestReminderEmailFn, updateMeetingFn } from '@/lib/server-actions'
 import { handleGoogleCallbackFn } from '@/lib/google-server-actions'
 import { isWebAuthnSupported, registerPasskey } from '@/lib/webauthn'
 
@@ -99,11 +99,12 @@ function CalendarApp() {
   const [googleConnected, setGoogleConnected] = useState(false)
   const [googleEmail, setGoogleEmail] = useState('')
   const [googleLoading, setGoogleLoading] = useState(false)
-  const [statusMsg, setStatusMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+  const [statusMsg, setStatusMsg] = useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(null)
   const [defaultReminderEmails, setDefaultReminderEmails] = useState<string[]>([])
   const [newDefaultEmail, setNewDefaultEmail] = useState('')
   const [savingEmails, setSavingEmails] = useState(false)
   const [runningCron, setRunningCron] = useState(false)
+  const [sendingTestEmail, setSendingTestEmail] = useState(false)
   const [biometricEnabled, setBiometricEnabled] = useState(false)
   const [biometricLoading, setBiometricLoading] = useState(false)
 
@@ -427,11 +428,47 @@ function CalendarApp() {
     setRunningCron(true)
     try {
       const result = await runReminderSchedulerFn({ data: {} })
-      setStatusMsg({ type: 'success', text: `Reminders processed: ${result.sent} sent, ${result.failed} failed.` })
+      if (!result.processed || result.processed === 0) {
+        setStatusMsg({
+          type: 'info',
+          text: 'No reminders currently due. (All past reminders were already sent, and future meetings are waiting for their scheduled time. Click "Send Test Email" to test immediate inbox delivery!)',
+        })
+      } else {
+        setStatusMsg({
+          type: 'success',
+          text: `Reminders processed: ${result.sent} sent, ${result.failed} failed.`,
+        })
+      }
     } catch (err: any) {
       setStatusMsg({ type: 'error', text: err.message || 'Failed to run reminders.' })
     } finally {
       setRunningCron(false)
+    }
+  }
+
+  const handleSendTestEmail = async () => {
+    const targetEmail = defaultReminderEmails[0] || user?.email
+    if (!targetEmail) {
+      setStatusMsg({ type: 'error', text: 'No recipient email configured. Please add an email below first.' })
+      return
+    }
+
+    setSendingTestEmail(true)
+    try {
+      await sendTestReminderEmailFn({
+        data: {
+          toEmail: targetEmail,
+          userName: profile?.name || 'Founder',
+        },
+      })
+      setStatusMsg({
+        type: 'success',
+        text: `Test email sent to ${targetEmail}! Check your inbox.`,
+      })
+    } catch (err: any) {
+      setStatusMsg({ type: 'error', text: err.message || 'Failed to send test email.' })
+    } finally {
+      setSendingTestEmail(false)
     }
   }
 
@@ -635,7 +672,13 @@ function CalendarApp() {
 
       {/* Global Status Banner */}
       {statusMsg && (
-        <div className={`flex items-center justify-between px-6 py-3 text-xs font-semibold ${statusMsg.type === 'success' ? 'bg-primary/10 text-primary border-b border-primary/20' : 'bg-destructive/10 text-destructive border-b border-destructive/20'}`}>
+        <div className={`flex items-center justify-between px-6 py-3 text-xs font-semibold ${
+          statusMsg.type === 'success'
+            ? 'bg-primary/10 text-primary border-b border-primary/20'
+            : statusMsg.type === 'info'
+            ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-b border-blue-500/20'
+            : 'bg-destructive/10 text-destructive border-b border-destructive/20'
+        }`}>
           <span>{statusMsg.text}</span>
           <Button variant="ghost" size="icon" className="size-6 text-current" onClick={() => setStatusMsg(null)}>
             <X className="size-3.5" />
@@ -773,10 +816,16 @@ function CalendarApp() {
                     <p className="text-xs text-muted-foreground">Configure default recipient email addresses for automatic meeting reminders.</p>
                   </div>
                 </div>
-                <Button onClick={handleRunReminders} disabled={runningCron} variant="outline" size="sm" className="gap-2 font-bold text-xs h-9">
-                  <RefreshCw className={`size-3.5 ${runningCron ? 'animate-spin' : ''}`} />
-                  Run Reminders Now
-                </Button>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button onClick={handleSendTestEmail} disabled={sendingTestEmail} variant="secondary" size="sm" className="gap-2 font-bold text-xs h-9">
+                    <Send className={`size-3.5 ${sendingTestEmail ? 'animate-spin' : ''}`} />
+                    Send Test Email
+                  </Button>
+                  <Button onClick={handleRunReminders} disabled={runningCron} variant="outline" size="sm" className="gap-2 font-bold text-xs h-9">
+                    <RefreshCw className={`size-3.5 ${runningCron ? 'animate-spin' : ''}`} />
+                    Run Reminders Now
+                  </Button>
+                </div>
               </div>
 
               <div>

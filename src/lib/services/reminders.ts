@@ -186,7 +186,7 @@ export async function processDueReminders(): Promise<{ processed: number; sent: 
     }
 
     // Send to all recipients, use first result to determine status
-    let result = { success: false, error: 'No recipients' }
+    let result: { success: boolean; id?: string; error?: string } = { success: false, error: 'No recipients' }
     for (const email of allRecipients) {
       result = await sendMeetingReminderEmail({ toEmail: email, ...emailPayload })
       if (!result.success) {

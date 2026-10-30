@@ -200,3 +200,30 @@ export const rsvpMeetingFn = createServerFn({ method: 'POST' })
     if (error) throw new Error(`Failed to update attendance: ${error.message}`)
     return { success: true, attendance: data.attendance }
   })
+
+export const sendTestReminderEmailFn = createServerFn({ method: 'POST' })
+  .validator((data: { toEmail: string; userName?: string }) => data)
+  .handler(async ({ data }) => {
+    const { sendMeetingReminderEmail } = await import('./services/resend')
+    const result = await sendMeetingReminderEmail({
+      toEmail: data.toEmail,
+      userName: data.userName || 'Founder',
+      meetingTitle: 'Test Meeting Reminder (Buildicy)',
+      clientName: 'Buildicy Team',
+      meetingDate: new Date().toISOString().split('T')[0] || '2026-10-30',
+      startTime: '10:00',
+      endTime: '11:00',
+      meetingType: 'Client Meeting',
+      description: 'This is a test notification confirming that Buildicy automated email reminders and Gmail SMTP are working perfectly.',
+      googleMeetLink: 'https://meet.google.com',
+      minutesBefore: 15,
+      meetingId: 'test-meeting-id',
+    })
+
+    if (!result.success) {
+      throw new Error(result.error || 'Failed to send test email')
+    }
+
+    return { success: true, id: result.id }
+  })
+
