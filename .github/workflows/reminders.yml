@@ -1,0 +1,15 @@
+name: Reminder Worker
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger reminder cron
+        run: |
+          curl -s -o /dev/null -w "%{http_code}" \
+            "https://calendar.buildicy.com/api/cron/reminders?secret=${{ secrets.CRON_SECRET }}"
