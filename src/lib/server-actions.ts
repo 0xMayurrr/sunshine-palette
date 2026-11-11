@@ -215,6 +215,15 @@ export const updateMeetingStatusFn = createServerFn({ method: 'POST' })
     return { success: true, status: data.status }
   })
 
+export const sendUnmarkedNudgeFn = createServerFn({ method: 'POST' })
+  .validator((data: { toEmail: string; userName: string; meetings: { title: string; date: string; client?: string }[] }) => data)
+  .handler(async ({ data }) => {
+    const { sendUnmarkedMeetingsNudgeEmail } = await import('./services/resend')
+    const result = await sendUnmarkedMeetingsNudgeEmail(data)
+    if (!result.success) throw new Error(result.error || 'Failed to send nudge email')
+    return { success: true }
+  })
+
 export const sendTestReminderEmailFn = createServerFn({ method: 'POST' })
   .validator((data: { toEmail: string; userName?: string }) => data)
   .handler(async ({ data }) => {

@@ -52,7 +52,6 @@ export async function sendMeetingReminderEmail(payload: ReminderEmailPayload): P
     console.warn(`[Gmail Blocked] Refused to send reminder to non-mailbox domain: ${payload.toEmail}`)
     return { success: false, error: `Blocked: ${payload.toEmail} has no mailbox server (would cause delivery bounce).` }
   }
-
   if (!transporter) {
     console.warn('[Gmail] GMAIL_USER or GMAIL_APP_PASSWORD not configured. Cannot send email.', payload)
     return { success: false, error: 'Gmail SMTP credentials (GMAIL_USER or GMAIL_APP_PASSWORD) not configured.' }
@@ -234,6 +233,78 @@ export async function sendMeetingReminderEmail(payload: ReminderEmailPayload): P
   } catch (err: any) {
     console.error('[Gmail SMTP Error]', err)
     return { success: false, error: err.message || 'Failed to send email' }
+  }
+}
+
+export async function sendUnmarkedMeetingsNudgeEmail(payload: {
+  toEmail: string
+  userName: string
+  meetings: { title: string; date: string; client?: string }[]
+}): Promise<{ success: boolean; error?: string }> {
+  const transporter = getTransporter()
+  const fromEmail = process.env['GMAIL_USER'] || 'mayurbuildicy@gmail.com'
+  if (!transporter) return { success: false, error: 'Gmail SMTP not configured.' }
+
+  const rows = payload.meetings.map(m =>
+    `<tr>
+      <td style="padding:10px 16px;font-family:'Space Grotesk',sans-serif;font-size:13px;font-weight:700;color:#1E1B4B;border-bottom:1px solid #EDE9FE;">${escapeHtml(m.title)}</td>
+      <td style="padding:10px 16px;font-size:12px;color:#71717A;border-bottom:1px solid #EDE9FE;">${escapeHtml(m.date)}</td>
+      <td style="padding:10px 16px;font-size:12px;color:#71717A;border-bottom:1px solid #EDE9FE;">${escapeHtml(m.client || '—')}</td>
+    </tr>`
+  ).join('')
+
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700;800&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+</head>
+<body style="margin:0;padding:0;background:#F0EDFB;font-family:'DM Sans',system-ui,sans-serif;">
+<table width="100%" cellspacing="0" cellpadding="0" style="background:#F0EDFB;padding:48px 16px 40px;"><tr><td align="center">
+<table width="100%" cellspacing="0" cellpadding="0" style="max-width:580px;">
+  <tr><td style="padding-bottom:24px;">
+    <span style="font-family:'Space Grotesk',sans-serif;font-size:16px;font-weight:800;letter-spacing:2px;color:#18181B;">BUILDICY</span><span style="font-family:'Space Grotesk',sans-serif;font-size:16px;font-weight:800;letter-spacing:2px;color:#7C3AED;">CALENDAR</span>
+  </td></tr>
+  <tr><td style="background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 32px rgba(124,58,237,0.10);">
+    <table width="100%" cellspacing="0" cellpadding="0">
+      <tr><td style="height:4px;background:linear-gradient(90deg,#F59E0B,#D97706);"></td></tr>
+      <tr><td style="background:linear-gradient(135deg,#78350F,#92400E);padding:32px 40px 28px;">
+        <p style="margin:0 0 8px;font-size:11px;font-weight:700;color:#FCD34D;text-transform:uppercase;letter-spacing:2px;">Action Required</p>
+        <h1 style="margin:0;font-family:'Space Grotesk',sans-serif;font-size:22px;font-weight:800;color:#FEF3C7;line-height:1.3;">You have ${payload.meetings.length} past ${payload.meetings.length === 1 ? 'meeting' : 'meetings'} with no status update</h1>
+        <p style="margin:10px 0 0;font-size:13px;color:#FDE68A;">Hey ${escapeHtml(payload.userName)}, these meetings have already ended but are still marked as <strong>Scheduled</strong>. Please update their status.</p>
+      </td></tr>
+      <tr><td style="padding:28px 40px;">
+        <table width="100%" cellspacing="0" cellpadding="0" style="border:1.5px solid #FDE68A;border-radius:10px;overflow:hidden;">
+          <tr style="background:#FFFBEB;">
+            <th style="padding:10px 16px;text-align:left;font-size:10px;font-weight:700;color:#92400E;text-transform:uppercase;letter-spacing:1px;">Meeting</th>
+            <th style="padding:10px 16px;text-align:left;font-size:10px;font-weight:700;color:#92400E;text-transform:uppercase;letter-spacing:1px;">Date</th>
+            <th style="padding:10px 16px;text-align:left;font-size:10px;font-weight:700;color:#92400E;text-transform:uppercase;letter-spacing:1px;">Client</th>
+          </tr>
+          ${rows}
+        </table>
+        <p style="margin:20px 0 0;font-size:12px;color:#71717A;">Open Buildicy Calendar to mark each meeting as <strong>Completed</strong>, <strong>Cancelled</strong>, or <strong>Postponed</strong>.</p>
+        <table width="100%" cellspacing="0" cellpadding="0" style="margin-top:20px;"><tr><td align="center">
+          <a href="https://calendar.buildicy.com" style="display:inline-block;background:linear-gradient(135deg,#D97706,#B45309);color:#fff;font-family:'Space Grotesk',sans-serif;font-size:14px;font-weight:700;text-decoration:none;padding:14px 36px;border-radius:10px;">Update Meeting Status &rarr;</a>
+        </td></tr></table>
+      </td></tr>
+      <tr><td style="padding:16px 40px;background:#FAFAFA;border-top:1px solid #F0EDFB;">
+        <p style="margin:0;font-size:11px;color:#A1A1AA;">Buildicy Founder Workspace &bull; This is an automated nudge.</p>
+      </td></tr>
+    </table>
+  </td></tr>
+</table>
+</td></tr></table>
+</body></html>`
+
+  try {
+    await transporter.sendMail({
+      from: `"Buildicy Calendar" <${fromEmail}>`,
+      to: payload.toEmail,
+      subject: `⚠️ ${payload.meetings.length} past ${payload.meetings.length === 1 ? 'meeting' : 'meetings'} need a status update`,
+      html,
+    })
+    return { success: true }
+  } catch (err: any) {
+    return { success: false, error: err.message }
   }
 }
 

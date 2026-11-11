@@ -9,7 +9,7 @@ import { TotalMeetingsSection } from '@/components/calendar/TotalMeetingsSection
 import { blankMeeting, calculateDuration, calculateReminderDisplay, categoryThemes, formatTime, Meeting, MeetingType, Reminder, UserProfile } from '@/lib/calendar'
 import { useAuth } from '@/lib/auth-context'
 import { supabase } from '@/lib/supabase'
-import { createMeetingFn, deleteMeetingFn, disconnectGoogleFn, getGoogleConnectUrlFn, runReminderSchedulerFn, saveDefaultReminderEmailsFn, sendTestReminderEmailFn, updateMeetingFn, updateMeetingStatusFn } from '@/lib/server-actions'
+import { createMeetingFn, deleteMeetingFn, disconnectGoogleFn, getGoogleConnectUrlFn, runReminderSchedulerFn, saveDefaultReminderEmailsFn, sendTestReminderEmailFn, updateMeetingFn, updateMeetingStatusFn, sendUnmarkedNudgeFn } from '@/lib/server-actions'
 import { handleGoogleCallbackFn } from '@/lib/google-server-actions'
 import { isWebAuthnSupported, registerPasskey } from '@/lib/webauthn'
 
@@ -108,6 +108,7 @@ function CalendarApp() {
   const [biometricEnabled, setBiometricEnabled] = useState(false)
   const [biometricLoading, setBiometricLoading] = useState(false)
   const [dismissedNudge, setDismissedNudge] = useState(false)
+  const [nudgeEmailSent, setNudgeEmailSent] = useState(false)
 
   useEffect(() => {
     const stored = localStorage.getItem('buildicy_passkey_credential_id')
@@ -534,6 +535,22 @@ function CalendarApp() {
   const unmarkedPastMeetings = useMemo(() =>
     meetings.filter(m => m.status === 'scheduled' && `${m.date}T${m.endTime}` < format(today, "yyyy-MM-dd'T'HH:mm"))
   , [meetings])
+
+  // Auto-send nudge email once per session when unmarked past meetings exist
+  useEffect(() => {
+    if (nudgeEmailSent || unmarkedPastMeetings.length === 0 || !user) return
+    const isDeliverable = (e?: string | null) => Boolean(e && e.includes('@'))
+    const toEmail = defaultReminderEmails.find(isDeliverable) || (isDeliverable(user.email) ? user.email! : null)
+    if (!toEmail) return
+    setNudgeEmailSent(true)
+    sendUnmarkedNudgeFn({
+      data: {
+        toEmail,
+        userName: profile?.name || 'Founder',
+        meetings: unmarkedPastMeetings.map(m => ({ title: m.title, date: m.date, client: m.client })),
+      }
+    }).catch(() => {})
+  }, [unmarkedPastMeetings, nudgeEmailSent, user])
 
   if (authLoading) {
     return <BuildicyLogoLoading />
