@@ -6,7 +6,7 @@ export interface UserProfile { name: string; role: string }
 export interface Meeting {
   id: string; title: string; client: string; date: string; startTime: string; endTime: string;
   type: MeetingType; color: MeetingType; description: string; meetingLink: string;
-  reminders: Reminder[]; reminderEmails: string[]; status: 'scheduled' | 'completed' | 'cancelled';
+  reminders: Reminder[]; reminderEmails: string[]; status: 'scheduled' | 'completed' | 'cancelled' | 'postponed';
   google_event_id?: string; google_meet_link?: string;
   attendance?: 'attending' | 'not_attending' | null;
 }

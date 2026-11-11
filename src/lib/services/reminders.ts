@@ -170,9 +170,7 @@ export async function processDueReminders(): Promise<{ processed: number; sent: 
       meetingId: meeting.id,
     }
 
-    // Helper: only accept real, deliverable emails; strictly block buildicy.com which lacks MX mail records
-    const isDeliverable = (email: string) =>
-      Boolean(email && email.includes('@') && !email.toLowerCase().endsWith('@buildicy.com'))
+    const isDeliverable = (email: string) => Boolean(email && email.includes('@'))
 
     // Build recipient list:
     // 1. Meeting reminder_emails (filtered)

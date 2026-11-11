@@ -68,7 +68,7 @@ export function TotalMeetingsSection({
 
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedCategory, setSelectedCategory] = useState<MeetingType | 'All'>('All')
-  const [selectedStatus, setSelectedStatus] = useState<'All' | 'scheduled' | 'completed' | 'cancelled'>('All')
+  const [selectedStatus, setSelectedStatus] = useState<'All' | 'scheduled' | 'completed' | 'cancelled' | 'postponed'>('All')
 
   const now = useMemo(() => new Date(), [])
 
@@ -149,7 +149,7 @@ export function TotalMeetingsSection({
       const status = m.status || 'scheduled'
       if (status === 'completed') completed++
       else if (status === 'cancelled') cancelled++
-      else scheduled++
+      else scheduled++ // includes 'scheduled' and 'postponed'
     })
 
     return { scheduled, completed, cancelled }
@@ -391,13 +391,13 @@ export function TotalMeetingsSection({
           <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
             Completion Rate
           </p>
-          <div className="mt-1">
+          <div className="mt-1 flex items-center gap-2">
             <span className="font-display text-2xl font-bold text-foreground">
               {completionRate}%
             </span>
           </div>
           <p className="mt-1 text-[10px] text-muted-foreground">
-            {statusStats.scheduled + statusStats.completed} active sessions
+            {statusStats.completed} done · {statusStats.scheduled} pending
           </p>
         </div>
 
@@ -658,6 +658,7 @@ export function TotalMeetingsSection({
               <option value="scheduled">Scheduled</option>
               <option value="completed">Completed</option>
               <option value="cancelled">Cancelled</option>
+              <option value="postponed">Postponed</option>
             </select>
           </div>
         </div>

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Check, Copy, Loader2, Mail, Pencil, Plus, Trash2, X, Video } from 'lucide-react'
+import { Check, CheckCircle2, Copy, Loader2, Mail, Pencil, Plus, Trash2, X, Video, XCircle, Clock } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
@@ -16,6 +16,8 @@ type Props = {
   onDelete: (id: string) => void
   onDuplicate: (meeting: Meeting) => void
   onEdit: () => void
+  onStatusChange?: (id: string, status: 'scheduled' | 'completed' | 'cancelled' | 'postponed') => Promise<void>
+  meetingScore?: { completed: number; total: number }
 }
 
 const colors: Record<MeetingType, string> = {
@@ -89,13 +91,14 @@ function TimePickerInput({ value, onChange, minTime }: { value: string; onChange
   )
 }
 
-export function MeetingDialog({ meeting, mode, isGoogleConnected, userId, onClose, onSave, onDelete, onDuplicate, onEdit }: Props) {
+export function MeetingDialog({ meeting, mode, isGoogleConnected, userId, onClose, onSave, onDelete, onDuplicate, onEdit, onStatusChange, meetingScore }: Props) {
   const [draft, setDraft] = useState<Meeting | null>(meeting)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [meetLinkLoading, setMeetLinkLoading] = useState(false)
   const [meetLinkError, setMeetLinkError] = useState('')
   const [newReminderEmail, setNewReminderEmail] = useState('')
+  const [statusLoading, setStatusLoading] = useState(false)
 
   useEffect(() => {
     setDraft(meeting)
@@ -115,10 +118,6 @@ export function MeetingDialog({ meeting, mode, isGoogleConnected, userId, onClos
   const addReminderEmail = () => {
     const email = newReminderEmail.trim()
     if (!email || !email.includes('@')) return
-    if (email.toLowerCase().endsWith('@buildicy.com')) {
-      alert('buildicy.com does not have an active email inbox. Please use a working email address (e.g. your Gmail).')
-      return
-    }
     const current = draft.reminderEmails || []
     if (!current.includes(email)) update('reminderEmails', [...current, email])
     setNewReminderEmail('')
@@ -170,6 +169,24 @@ export function MeetingDialog({ meeting, mode, isGoogleConnected, userId, onClos
   }
 
   const meetUrl = draft.google_meet_link || draft.meetingLink
+
+  const handleStatusChange = async (status: 'scheduled' | 'completed' | 'cancelled' | 'postponed') => {
+    if (!onStatusChange || !draft.id) return
+    setStatusLoading(true)
+    try {
+      await onStatusChange(draft.id, status)
+      setDraft(current => current ? { ...current, status } : current)
+    } finally {
+      setStatusLoading(false)
+    }
+  }
+
+  const statusConfig = {
+    completed: { label: 'Completed', icon: CheckCircle2, cls: 'bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20' },
+    cancelled: { label: 'Cancelled', icon: XCircle, cls: 'bg-destructive/10 border-destructive/30 text-destructive hover:bg-destructive/20' },
+    postponed: { label: 'Postponed', icon: Clock, cls: 'bg-amber-500/10 border-amber-500/30 text-amber-600 dark:text-amber-400 hover:bg-amber-500/20' },
+    scheduled: { label: 'Scheduled', icon: Check, cls: 'bg-primary/10 border-primary/30 text-primary hover:bg-primary/20' },
+  }
 
   return (
     <Dialog open={!!meeting} onOpenChange={(open) => { if (!open) onClose() }}>
@@ -252,6 +269,58 @@ export function MeetingDialog({ meeting, mode, isGoogleConnected, userId, onClos
                 ) : (
                   <span className="text-sm text-muted-foreground">No reminders set</span>
                 )}
+              </div>
+            </div>
+
+            {/* Meeting Status Controls */}
+            <div className="border border-border rounded-sm p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <p className={labelClass}>Meeting Status</p>
+                {meetingScore && (
+                  <div className="flex items-center gap-2">
+                    <div className="text-right">
+                      <p className="text-[10px] font-bold uppercase text-muted-foreground">Score</p>
+                      <p className="font-display text-sm font-bold text-foreground">
+                        {meetingScore.completed}<span className="text-muted-foreground text-xs font-normal">/{meetingScore.total}</span>
+                      </p>
+                    </div>
+                    <div className="relative size-10">
+                      <svg className="size-10 -rotate-90" viewBox="0 0 36 36">
+                        <circle cx="18" cy="18" r="15" fill="none" stroke="currentColor" strokeWidth="3" className="text-border" />
+                        <circle
+                          cx="18" cy="18" r="15" fill="none" stroke="currentColor" strokeWidth="3"
+                          strokeDasharray={`${meetingScore.total > 0 ? Math.round((meetingScore.completed / meetingScore.total) * 94) : 0} 94`}
+                          className="text-primary transition-all duration-500"
+                        />
+                      </svg>
+                      <span className="absolute inset-0 flex items-center justify-center text-[9px] font-black text-primary">
+                        {meetingScore.total > 0 ? Math.round((meetingScore.completed / meetingScore.total) * 100) : 0}%
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {(['completed', 'cancelled', 'postponed', 'scheduled'] as const).map((s) => {
+                  const cfg = statusConfig[s]
+                  const Icon = cfg.icon
+                  const isActive = draft.status === s
+                  return (
+                    <button
+                      key={s}
+                      type="button"
+                      disabled={statusLoading}
+                      onClick={() => handleStatusChange(s)}
+                      className={`inline-flex items-center gap-1.5 rounded border px-3 py-1.5 text-xs font-bold transition-all disabled:opacity-50 ${
+                        isActive ? `${cfg.cls} ring-2 ring-offset-1 ring-current` : `border-border text-muted-foreground hover:${cfg.cls}`
+                      }`}
+                    >
+                      <Icon className="size-3.5" />
+                      {cfg.label}
+                      {isActive && <Check className="size-3" />}
+                    </button>
+                  )
+                })}
               </div>
             </div>
 

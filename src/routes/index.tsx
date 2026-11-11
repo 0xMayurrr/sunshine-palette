@@ -9,7 +9,7 @@ import { TotalMeetingsSection } from '@/components/calendar/TotalMeetingsSection
 import { blankMeeting, calculateDuration, calculateReminderDisplay, categoryThemes, formatTime, Meeting, MeetingType, Reminder, UserProfile } from '@/lib/calendar'
 import { useAuth } from '@/lib/auth-context'
 import { supabase } from '@/lib/supabase'
-import { createMeetingFn, deleteMeetingFn, disconnectGoogleFn, getGoogleConnectUrlFn, runReminderSchedulerFn, saveDefaultReminderEmailsFn, sendTestReminderEmailFn, updateMeetingFn } from '@/lib/server-actions'
+import { createMeetingFn, deleteMeetingFn, disconnectGoogleFn, getGoogleConnectUrlFn, runReminderSchedulerFn, saveDefaultReminderEmailsFn, sendTestReminderEmailFn, updateMeetingFn, updateMeetingStatusFn } from '@/lib/server-actions'
 import { handleGoogleCallbackFn } from '@/lib/google-server-actions'
 import { isWebAuthnSupported, registerPasskey } from '@/lib/webauthn'
 
@@ -377,6 +377,13 @@ function CalendarApp() {
     }
   }
 
+  const handleStatusChange = async (id: string, status: 'scheduled' | 'completed' | 'cancelled' | 'postponed') => {
+    const SHARED_OWNER_ID = 'dcf1bb3b-bac8-4cde-8a75-d1ed4d9f1c75'
+    await updateMeetingStatusFn({ data: { userId: SHARED_OWNER_ID, meetingId: id, status } })
+    setMeetings(prev => prev.map(m => m.id === id ? { ...m, status } : m))
+    if (active && active.id === id) setActive(prev => prev ? { ...prev, status } : prev)
+  }
+
   const handleDuplicate = async (meeting: Meeting) => {
     if (!user) return
     const copyTitle = `${meeting.title} (copy)`
@@ -520,6 +527,12 @@ function CalendarApp() {
   }
 
   const selectSection = (next: Section) => { setSection(next); setMobileMenu(false) }
+
+  const meetingScore = useMemo(() => {
+    const completed = meetings.filter(m => m.status === 'completed').length
+    const total = meetings.filter(m => m.status !== 'cancelled').length
+    return { completed, total }
+  }, [meetings])
 
   if (authLoading) {
     return <BuildicyLogoLoading />
@@ -1022,6 +1035,7 @@ function CalendarApp() {
                       ['Today', todaysCount],
                       ['This week', weekCount],
                       ['Upcoming', upcoming.length],
+                      ['Completed', meetings.filter(m => m.status === 'completed').length],
                       ['Total placed', meetings.length],
                     ].map(([label, count]) => (
                       <div
@@ -1065,6 +1079,8 @@ function CalendarApp() {
       onDelete={handleDelete}
       onDuplicate={handleDuplicate}
       onEdit={() => setDialogMode('edit')}
+      onStatusChange={handleStatusChange}
+      meetingScore={meetingScore}
     />
   </div>
 }
@@ -1078,7 +1094,20 @@ const eventCardBgStyles: Record<MeetingType, string> = {
 }
 
 function EventCard({ meeting, onOpen, compact = false }: { meeting: Meeting; onOpen: (meeting: Meeting) => void; compact?: boolean }) {
-  const bgStyle = eventCardBgStyles[meeting.color] || eventCardBgStyles[meeting.type] || 'bg-purple-600 text-white font-bold'
+  const status = meeting.status || 'scheduled'
+  const isCancelled = status === 'cancelled'
+  const isCompleted = status === 'completed'
+  const isPostponed = status === 'postponed'
+
+  const bgStyle = isCancelled
+    ? 'bg-destructive/20 text-destructive border border-dashed border-destructive/60 opacity-80'
+    : isCompleted
+    ? 'bg-emerald-600/40 text-emerald-950 dark:text-emerald-100 border border-emerald-500/60'
+    : isPostponed
+    ? 'bg-amber-500/40 text-amber-950 dark:text-amber-100 border border-amber-500/60'
+    : (eventCardBgStyles[meeting.color] || eventCardBgStyles[meeting.type] || 'bg-purple-600 text-white font-bold')
+
+  const statusIcon = isCompleted ? '✓' : isCancelled ? '✕' : isPostponed ? '⏸' : null
 
   return (
     <Button
@@ -1087,17 +1116,22 @@ function EventCard({ meeting, onOpen, compact = false }: { meeting: Meeting; onO
         e.stopPropagation()
         onOpen(meeting)
       }}
-      title={`${formatTime(meeting.startTime)} · ${meeting.title} (${meeting.type})`}
+      title={`${formatTime(meeting.startTime)} · ${meeting.title} (${status})`}
       className={`flex h-auto min-w-0 w-full items-center justify-start gap-1.5 overflow-hidden rounded-md px-2 text-left transition-all ${bgStyle} ${
         compact ? 'py-1 text-[11px]' : 'py-1.5 text-xs'
       } hover:scale-[1.01] hover:shadow-md`}
     >
-      <span className="shrink-0 rounded bg-black/25 px-1 py-0.5 text-[9px] font-extrabold tracking-tight text-white">
-        {meeting.startTime}
-      </span>
-      <span className="truncate font-bold tracking-tight">{meeting.title}</span>
-      {meeting.attendance === 'attending' && <span className="ml-auto shrink-0 text-[10px]">✓</span>}
-      {meeting.attendance === 'not_attending' && <span className="ml-auto shrink-0 text-[10px]">✗</span>}
+      {!isCancelled && (
+        <span className={`shrink-0 rounded px-1 py-0.5 text-[9px] font-extrabold tracking-tight ${
+          isCompleted ? 'bg-emerald-700/40 text-emerald-900 dark:text-emerald-100'
+          : isPostponed ? 'bg-amber-600/40 text-amber-900 dark:text-amber-100'
+          : 'bg-black/25 text-white'
+        }`}>
+          {meeting.startTime}
+        </span>
+      )}
+      <span className={`truncate font-bold tracking-tight ${isCancelled ? 'line-through' : ''}`}>{meeting.title}</span>
+      {statusIcon && <span className="ml-auto shrink-0 text-[10px] font-black">{statusIcon}</span>}
     </Button>
   )
 }
@@ -1236,24 +1270,35 @@ function MonthView({ cursor, selected, meetings, onSelect, onOpen, onCreate }: {
 
             <div className="space-y-2.5 p-6">
               {modalMeetings.map((m) => {
-                const bgStyle = eventCardBgStyles[m.color] || eventCardBgStyles[m.type] || 'bg-purple-600 text-white font-bold'
+                const mStatus = m.status || 'scheduled'
+                const mCancelled = mStatus === 'cancelled'
+                const mCompleted = mStatus === 'completed'
+                const mPostponed = mStatus === 'postponed'
+                const bgStyle = mCancelled
+                  ? 'bg-destructive/25 border border-dashed border-destructive/70 text-destructive'
+                  : mCompleted
+                  ? 'bg-emerald-600/35 border border-emerald-500/70 text-emerald-950 dark:text-emerald-100'
+                  : mPostponed
+                  ? 'bg-amber-500/35 border border-amber-500/70 text-amber-950 dark:text-amber-100'
+                  : (eventCardBgStyles[m.color] || eventCardBgStyles[m.type] || 'bg-purple-600 text-white font-bold')
+                const isColored = !mCancelled && !mCompleted && !mPostponed
                 return (
                   <div
                     key={m.id}
-                    onClick={() => {
-                      setDayModalDate(null)
-                      onOpen(m)
-                    }}
+                    onClick={() => { setDayModalDate(null); onOpen(m) }}
                     className={`flex cursor-pointer items-center justify-between rounded-md p-3.5 transition-all ${bgStyle} hover:scale-[1.01] hover:shadow-md`}
                   >
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
-                        <span className="rounded bg-black/30 px-1.5 py-0.5 text-[10px] font-extrabold text-white">
+                        <span className={`rounded px-1.5 py-0.5 text-[10px] font-extrabold ${isColored ? 'bg-black/30 text-white' : 'bg-black/10'}`}>
                           {formatTime(m.startTime)} – {formatTime(m.endTime)}
                         </span>
                         <span className="text-[10px] font-extrabold uppercase tracking-wide opacity-90">{m.type}</span>
+                        {mCompleted && <span className="text-[10px] font-black text-emerald-600 dark:text-emerald-400">✓ Done</span>}
+                        {mCancelled && <span className="text-[10px] font-black text-destructive">✕ Cancelled</span>}
+                        {mPostponed && <span className="text-[10px] font-black text-amber-600 dark:text-amber-400">⏸ Postponed</span>}
                       </div>
-                      <p className="mt-1.5 truncate text-sm font-extrabold">{m.title}</p>
+                      <p className={`mt-1.5 truncate text-sm font-extrabold ${mCancelled ? 'line-through opacity-60' : ''}`}>{m.title}</p>
                       {m.client && <p className="mt-0.5 text-xs opacity-90 font-medium">Client: {m.client}</p>}
                     </div>
                     <ChevronRight className="size-5 shrink-0 opacity-80" />
@@ -1333,6 +1378,11 @@ function UpcomingList({ meetings, onOpen, long = false, search }: { meetings: Me
 
         const theme = categoryThemes[m.color || m.type] || categoryThemes['Client Meeting']
         const duration = calculateDuration(m.startTime, m.endTime)
+        const mStatus = m.status || 'scheduled'
+        const isCancelled = mStatus === 'cancelled'
+        const isCompleted = mStatus === 'completed'
+        const isPostponed = mStatus === 'postponed'
+        const dotColor = isCompleted ? 'bg-emerald-500' : isCancelled ? 'bg-destructive/60' : isPostponed ? 'bg-amber-500' : theme.accentBar
 
         return (
           <div key={m.id} className="relative z-10 mb-4 last:mb-0">
@@ -1351,13 +1401,18 @@ function UpcomingList({ meetings, onOpen, long = false, search }: { meetings: Me
               <div className="group relative flex items-start gap-3">
                 {/* Timeline node dot */}
                 <div className="relative top-3 flex shrink-0 items-center justify-center">
-                  <div className={`size-3 rounded-full border-2 border-background ${theme.accentBar} shadow-2xs group-hover:scale-125 transition-transform`} />
+                  <div className={`size-3 rounded-full border-2 border-background ${dotColor} shadow-2xs group-hover:scale-125 transition-transform`} />
                 </div>
 
                 {/* Card Container */}
                 <div
                   onClick={() => onOpen(m)}
-                  className="flex-1 min-w-0 rounded-xl border border-border/80 bg-card p-3 shadow-2xs hover:shadow-md hover:border-primary/40 transition-all duration-200 cursor-pointer space-y-2"
+                  className={`flex-1 min-w-0 rounded-xl border p-3 shadow-2xs hover:shadow-md transition-all duration-200 cursor-pointer space-y-2 ${
+                    isCancelled ? 'border-destructive/50 bg-destructive/15'
+                    : isCompleted ? 'border-emerald-500/60 bg-emerald-500/15 hover:border-emerald-500/80'
+                    : isPostponed ? 'border-amber-500/60 bg-amber-500/15 hover:border-amber-500/80'
+                    : 'border-border/80 bg-card hover:border-primary/40'
+                  }`}
                 >
                   {/* Top Bar: Time & Category */}
                   <div className="flex items-center justify-between gap-2">
@@ -1373,7 +1428,7 @@ function UpcomingList({ meetings, onOpen, long = false, search }: { meetings: Me
 
                   {/* Title & Client */}
                   <div>
-                    <h4 className="text-xs sm:text-sm font-bold leading-snug text-foreground group-hover:text-primary transition-colors line-clamp-2">
+                    <h4 className={`text-xs sm:text-sm font-bold leading-snug text-foreground group-hover:text-primary transition-colors line-clamp-2 ${isCancelled ? 'line-through opacity-60' : ''}`}>
                       {m.title}
                     </h4>
                     {m.client && (
@@ -1422,13 +1477,18 @@ function UpcomingList({ meetings, onOpen, long = false, search }: { meetings: Me
               <div className="group relative flex items-start gap-4 sm:gap-5">
                 {/* Timeline node dot */}
                 <div className="relative top-4 flex shrink-0 items-center justify-center">
-                  <div className={`size-3.5 rounded-full border-2 border-background ${theme.accentBar} shadow-xs group-hover:scale-125 transition-transform`} />
+                  <div className={`size-3.5 rounded-full border-2 border-background ${dotColor} shadow-xs group-hover:scale-125 transition-transform`} />
                 </div>
 
                 {/* Card Container */}
                 <div
                   onClick={() => onOpen(m)}
-                  className="flex-1 min-w-0 rounded-xl border border-border/80 bg-card p-4 sm:p-5 shadow-2xs hover:shadow-md hover:border-primary/40 transition-all duration-200 cursor-pointer flex flex-col md:flex-row md:items-center justify-between gap-4"
+                  className={`flex-1 min-w-0 rounded-xl border p-4 sm:p-5 shadow-2xs hover:shadow-md transition-all duration-200 cursor-pointer flex flex-col md:flex-row md:items-center justify-between gap-4 ${
+                    isCancelled ? 'border-destructive/50 bg-destructive/15'
+                    : isCompleted ? 'border-emerald-500/60 bg-emerald-500/15 hover:border-emerald-500/80'
+                    : isPostponed ? 'border-amber-500/60 bg-amber-500/15 hover:border-amber-500/80'
+                    : 'border-border/80 bg-card hover:border-primary/40'
+                  }`}
                 >
                   <div className="min-w-0 flex-1 space-y-2.5">
                     <div className="flex flex-wrap items-center gap-2">
@@ -1442,6 +1502,10 @@ function UpcomingList({ meetings, onOpen, long = false, search }: { meetings: Me
                         <span className={`size-1.5 rounded-full ${theme.dot}`} />
                         {m.type}
                       </span>
+
+                      {isCompleted && <span className="inline-flex items-center gap-1 rounded-md bg-emerald-500/25 border border-emerald-500/60 px-2 py-0.5 text-[10px] font-black text-emerald-700 dark:text-emerald-300">✓ Completed</span>}
+                      {isCancelled && <span className="inline-flex items-center gap-1 rounded-md bg-destructive/25 border border-destructive/60 px-2 py-0.5 text-[10px] font-black text-destructive">✕ Cancelled</span>}
+                      {isPostponed && <span className="inline-flex items-center gap-1 rounded-md bg-amber-500/25 border border-amber-500/60 px-2 py-0.5 text-[10px] font-black text-amber-700 dark:text-amber-300">⏸ Postponed</span>}
 
                       {m.google_meet_link && (
                         <a
@@ -1458,7 +1522,7 @@ function UpcomingList({ meetings, onOpen, long = false, search }: { meetings: Me
                     </div>
 
                     <div>
-                      <h3 className="text-base sm:text-lg font-bold font-display text-foreground group-hover:text-primary transition-colors truncate">
+                      <h3 className={`text-base sm:text-lg font-bold font-display text-foreground group-hover:text-primary transition-colors truncate ${isCancelled ? 'line-through opacity-60' : ''}`}>
                         {m.title}
                       </h3>
                       {m.client && (

@@ -201,6 +201,20 @@ export const rsvpMeetingFn = createServerFn({ method: 'POST' })
     return { success: true, attendance: data.attendance }
   })
 
+export const updateMeetingStatusFn = createServerFn({ method: 'POST' })
+  .validator((data: { userId: string; meetingId: string; status: 'scheduled' | 'completed' | 'cancelled' | 'postponed' }) => data)
+  .handler(async ({ data }) => {
+    const { getSupabaseAdmin } = await import('./supabase-server')
+    const supabase = getSupabaseAdmin()
+    const { error } = await supabase
+      .from('meetings')
+      .update({ status: data.status, updated_at: new Date().toISOString() })
+      .eq('id', data.meetingId)
+      .eq('user_id', data.userId)
+    if (error) throw new Error(`Failed to update status: ${error.message}`)
+    return { success: true, status: data.status }
+  })
+
 export const sendTestReminderEmailFn = createServerFn({ method: 'POST' })
   .validator((data: { toEmail: string; userName?: string }) => data)
   .handler(async ({ data }) => {
