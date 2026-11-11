@@ -1,5 +1,5 @@
 import { getSupabaseAdmin } from '../supabase-server'
-import { sendMeetingReminderEmail } from './resend'
+import { sendMeetingReminderEmail, sendUnmarkedMeetingsNudgeEmail } from './resend'
 
 export const REMINDER_MINUTES_MAP: Record<string, number> = {
   '1 week before': 10080,
@@ -219,5 +219,61 @@ export async function processDueReminders(): Promise<{ processed: number; sent: 
     }
   }
 
+  // Fire-and-forget: check if daily nudge needs to be sent
+  checkAndSendUnmarkedNudge().catch(err => console.error('[Nudge] Failed:', err))
+
   return { processed: dueReminders.length, sent: sentCount, failed: failedCount }
+}
+
+export async function checkAndSendUnmarkedNudge() {
+  const supabase = getSupabaseAdmin()
+  const SHARED_OWNER_ID = 'dcf1bb3b-bac8-4cde-8a75-d1ed4d9f1c75'
+  const nowIso = new Date().toISOString()
+  const nowIst = new Date(Date.now() + 5.5 * 60 * 60 * 1000) // IST offset
+  const todayIst = nowIst.toISOString().split('T')[0] // yyyy-MM-dd in IST
+
+  // Check if nudge already sent today
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('email, name, default_reminder_emails, last_nudge_sent_at')
+    .eq('user_id', SHARED_OWNER_ID)
+    .maybeSingle()
+
+  if (!profile) return
+
+  const lastSent = profile.last_nudge_sent_at as string | null
+  if (lastSent && lastSent.startsWith(todayIst)) return // already sent today
+
+  // Find past meetings still on 'scheduled'
+  const { data: unmarked } = await supabase
+    .from('meetings')
+    .select('title, date, client_name, end_time')
+    .eq('user_id', SHARED_OWNER_ID)
+    .eq('status', 'scheduled')
+    .lt('date', todayIst) // strictly past dates
+
+  if (!unmarked || unmarked.length === 0) return
+
+  const isDeliverable = (e?: string | null) => Boolean(e && e.includes('@'))
+  const toEmail =
+    (profile.default_reminder_emails || []).find(isDeliverable) ||
+    (isDeliverable(profile.email) ? profile.email : null) ||
+    process.env['GMAIL_USER'] ||
+    null
+
+  if (!toEmail) return
+
+  const result = await sendUnmarkedMeetingsNudgeEmail({
+    toEmail,
+    userName: profile.name || 'Founder',
+    meetings: unmarked.map((m: any) => ({ title: m.title, date: m.date, client: m.client_name || '' })),
+  })
+
+  if (result.success) {
+    await supabase
+      .from('profiles')
+      .update({ last_nudge_sent_at: nowIso })
+      .eq('user_id', SHARED_OWNER_ID)
+    console.log(`[Nudge] Sent unmarked meetings nudge to ${toEmail} (${unmarked.length} meetings)`)
+  }
 }

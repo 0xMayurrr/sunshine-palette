@@ -10,6 +10,7 @@ create table if not exists public.profiles (
   role text default 'Founder',
   avatar_url text,
   default_reminder_emails text[] default '{}',
+  last_nudge_sent_at timestamptz default null,
   created_at timestamptz default now(),
   updated_at timestamptz default now()
 );
