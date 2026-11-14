@@ -47,11 +47,6 @@ export async function sendMeetingReminderEmail(payload: ReminderEmailPayload): P
     return { success: false, error: 'Invalid recipient email address.' }
   }
 
-  // Prevent sending to buildicy.com which points to Vercel and lacks MX records, causing Gmail bounce loops
-  if (payload.toEmail.toLowerCase().endsWith('@buildicy.com')) {
-    console.warn(`[Gmail Blocked] Refused to send reminder to non-mailbox domain: ${payload.toEmail}`)
-    return { success: false, error: `Blocked: ${payload.toEmail} has no mailbox server (would cause delivery bounce).` }
-  }
   if (!transporter) {
     console.warn('[Gmail] GMAIL_USER or GMAIL_APP_PASSWORD not configured. Cannot send email.', payload)
     return { success: false, error: 'Gmail SMTP credentials (GMAIL_USER or GMAIL_APP_PASSWORD) not configured.' }
